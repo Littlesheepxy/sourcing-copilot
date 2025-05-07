@@ -1,0 +1,76 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SVG to PNG Converter</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    .instructions { margin-bottom: 20px; }
+    .icons { display: flex; flex-wrap: wrap; gap: 20px; }
+    .icon-container { text-align: center; }
+    canvas { border: 1px solid #ccc; margin-bottom: 5px; }
+  </style>
+</head>
+<body>
+  <div class="instructions">
+    <h1>图标转换工具</h1>
+    <p>请右键点击下方每个图标并选择"图片另存为..."，保存到extension/icons/文件夹中，文件名分别为：</p>
+    <ul>
+      <li><strong>16x16像素</strong>: icon16.png</li>
+      <li><strong>48x48像素</strong>: icon48.png</li>
+      <li><strong>128x128像素</strong>: icon128.png</li>
+    </ul>
+  </div>
+  
+  <div class="icons">
+    <div class="icon-container">
+      <canvas id="canvas16" width="16" height="16"></canvas>
+      <div>16x16 (icon16.png)</div>
+    </div>
+    <div class="icon-container">
+      <canvas id="canvas48" width="48" height="48"></canvas>
+      <div>48x48 (icon48.png)</div>
+    </div>
+    <div class="icon-container">
+      <canvas id="canvas128" width="128" height="128"></canvas>
+      <div>128x128 (icon128.png)</div>
+    </div>
+  </div>
+
+  <script>
+    // SVG图标源
+    const svgSource = `<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="256" cy="256" r="256" fill="url(#gradient)"/>
+  <text x="256" y="300" font-family="Arial" font-size="220" font-weight="bold" font-style="italic" fill="white" text-anchor="middle">SC</text>
+  <defs>
+    <linearGradient id="gradient" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3B82F6"/>
+      <stop offset="0.5" stop-color="#A855F7"/>
+      <stop offset="1" stop-color="#EC4899"/>
+    </linearGradient>
+  </defs>
+</svg>`;
+    
+    // 在Canvas中渲染SVG
+    function renderSVG(canvasId, size) {
+      const canvas = document.getElementById(canvasId);
+      const ctx = canvas.getContext('2d');
+      
+      const img = new Image();
+      img.onload = function() {
+        ctx.drawImage(img, 0, 0, size, size);
+      };
+      
+      // 将SVG转换为数据URL
+      const blob = new Blob([svgSource], {type: 'image/svg+xml'});
+      const url = URL.createObjectURL(blob);
+      img.src = url;
+    }
+    
+    // 渲染所有尺寸
+    renderSVG('canvas16', 16);
+    renderSVG('canvas48', 48);
+    renderSVG('canvas128', 128);
+  </script>
+</body>
+</html>

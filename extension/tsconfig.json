@@ -1,0 +1,33 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../dist",
+    "sourceMap": true,
+    "declaration": false,
+    "allowJs": true,
+    "noEmit": false,
+    "target": "es2017",
+    "module": "es2015",
+    "moduleResolution": "node",
+    "baseUrl": ".",
+    "paths": {
+      "@shared/*": ["../shared/*"],
+      "@packages/*": ["../packages/*"]
+    },
+    "lib": ["dom", "es2018"]
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "../shared/**/*.ts",
+    "../shared/**/*.tsx",
+    "../packages/**/*.ts",
+    "../packages/**/*.tsx",
+    "types/*.d.ts",
+    "./content-scripts",
+    "./background",
+    "./popup",
+    "./sidebar"
+  ],
+  "exclude": ["node_modules"]
+} 
