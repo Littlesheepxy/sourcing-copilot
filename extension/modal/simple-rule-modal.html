@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>简易规则编辑器</title>
+  <style>
+    :root {
+      --primary: #3b82f6;
+      --primary-dark: #2563eb;
+      --danger: #ef4444;
+      --danger-dark: #dc2626;
+      --dark-bg: #1e293b;
+      --dark-card: #334155;
+      --dark-text: #f8fafc;
+      --light-bg: #f8fafc;
+      --light-card: #ffffff;
+      --light-text: #334155;
+      --border: #e2e8f0;
+      --border-dark: #475569;
+      --radius: 8px;
+    }
+    
+    body[data-theme="light"] {
+      --bg: var(--light-bg);
+      --card: var(--light-card);
+      --text: var(--light-text);
+      --current-border: var(--border);
+    }
+    
+    body[data-theme="dark"] {
+      --bg: var(--dark-bg);
+      --card: var(--dark-card);
+      --text: var(--dark-text);
+      --current-border: var(--border-dark);
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      transition: background-color 0.3s, color 0.3s;
+      height: 100vh;
+      overflow-y: auto;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--current-border);
+    }
+    
+    .title {
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+    
+    .theme-switcher {
+      display: flex;
+      align-items: center;
+      background: none;
+      border: none;
+      color: var(--text);
+      cursor: pointer;
+      padding: 5px;
+      border-radius: var(--radius);
+    }
+    
+    .card {
+      background-color: var(--card);
+      border-radius: var(--radius);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      border: 1px solid var(--current-border);
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    
+    .card-header {
+      padding: 15px;
+      border-bottom: 1px solid var(--current-border);
+      font-weight: 500;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .card-content {
+      padding: 15px;
+    }
+    
+    .btn {
+      padding: 8px 16px;
+      border-radius: var(--radius);
+      border: none;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    
+    .btn-sm {
+      padding: 4px 8px;
+      font-size: 12px;
+    }
+    
+    .btn-primary {
+      background-color: var(--primary);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background-color: var(--primary-dark);
+    }
+    
+    .btn-danger {
+      background-color: var(--danger);
+      color: white;
+    }
+    
+    .btn-danger:hover {
+      background-color: var(--danger-dark);
+    }
+    
+    .btn-group {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    .form-label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+    
+    .form-input,
+    .form-select {
+      width: 100%;
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--current-border);
+      background-color: var(--card);
+      color: var(--text);
+      font-size: 14px;
+    }
+    
+    .rule-card {
+      border: 1px solid var(--current-border);
+      border-radius: var(--radius);
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+    
+    .rule-header {
+      padding: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--current-border);
+      background-color: rgba(0,0,0,0.02);
+    }
+    
+    .rule-content {
+      padding: 15px;
+    }
+    
+    .tag-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 8px;
+    }
+    
+    .tag {
+      display: flex;
+      align-items: center;
+      background-color: rgba(59, 130, 246, 0.1);
+      padding: 4px 8px;
+      border-radius: 20px;
+      font-size: 13px;
+    }
+    
+    .tag-remove {
+      margin-left: 5px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    
+    .importance-slider {
+      width: 100%;
+      margin: 10px 0;
+    }
+    
+    .slider-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text);
+      opacity: 0.7;
+    }
+    
+    .actions {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+    }
+    
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+    }
+    
+    .checkbox-label input {
+      margin-right: 8px;
+    }
+    
+    .rule-icon {
+      margin-right: 8px;
+      width: 20px;
+      height: 20px;
+      text-align: center;
+    }
+    
+    .hint {
+      font-size: 12px;
+      color: var(--text);
+      opacity: 0.7;
+      margin-top: 4px;
+    }
+    
+    #load-spinner {
+      border: 3px solid rgba(0, 0, 0, 0.1);
+      border-radius: 50%;
+      border-top: 3px solid var(--primary);
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+      margin-left: 10px;
+      display: none;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    /* 阶段评估提示样式 */
+    .stage-hint {
+      background-color: rgba(59, 130, 246, 0.05);
+      border-radius: var(--radius);
+      padding: 12px;
+      margin-bottom: 16px;
+      border: 1px dashed rgba(59, 130, 246, 0.3);
+    }
+    
+    .stage-title-main {
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: var(--primary);
+    }
+    
+    .stages-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .stage {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .stage-header {
+      display: flex;
+      align-items: center;
+      font-weight: 500;
+    }
+    
+    .stage-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background-color: var(--primary);
+      color: white;
+      font-size: 12px;
+      margin-right: 8px;
+    }
+    
+    .stage-desc {
+      padding-left: 28px;
+      font-size: 13px;
+      color: var(--text);
+      opacity: 0.8;
+    }
+    
+    .stage-note {
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--text);
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body data-theme="light">
+  <div class="container">
+    <div class="header">
+      <h1 class="title">简易规则编辑器</h1>
+      <button id="theme-toggle" class="theme-switcher">
+        <svg id="moon-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+      </button>
+    </div>
+    
+    <!-- 规则添加按钮卡片 -->
+    <div class="card">
+      <div class="card-header">添加规则</div>
+      <div class="card-content">
+        <div class="btn-group">
+          <button class="btn btn-primary add-rule-btn" data-type="岗位">
+            <span class="rule-icon">👨‍💻</span>岗位
+          </button>
+          <button class="btn btn-primary add-rule-btn" data-type="公司">
+            <span class="rule-icon">🏢</span>公司
+          </button>
+          <button class="btn btn-primary add-rule-btn" data-type="岗位核心关键词">
+            <span class="rule-icon">🔧</span>岗位核心关键词
+          </button>
+          <button class="btn btn-primary add-rule-btn" data-type="学校">
+            <span class="rule-icon">🎓</span>学校
+          </button>
+          <button class="btn btn-primary add-rule-btn" data-type="学历">
+            <span class="rule-icon">📜</span>学历
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 规则列表卡片 -->
+    <div class="card">
+      <div class="card-header">
+        <span>规则列表</span>
+        <div class="btn-group">
+          <select id="history-select" class="form-select" style="width: auto; margin-right: 8px;">
+            <option value="">--选择历史配置--</option>
+            <!-- 历史配置选项将通过JS动态添加 -->
+          </select>
+          <button id="import-rules-btn" class="btn btn-sm">导入</button>
+          <button id="export-rules-btn" class="btn btn-sm">导出</button>
+          <button id="reset-rules-btn" class="btn btn-sm btn-danger">重置</button>
+        </div>
+      </div>
+      <div class="card-content">
+        <!-- 阶段评估提示 -->
+        <div id="stage-hint" class="stage-hint" style="display: none;"></div>
+        
+        <div id="rules-container">
+          <!-- 这里将由JavaScript动态生成规则卡片 -->
+        </div>
+        <div id="no-rules-message" style="text-align: center; padding: 20px; color: var(--text); opacity: 0.7;">
+          暂无规则，请点击"添加规则"按钮创建规则
+        </div>
+      </div>
+    </div>
+    
+    <!-- 底部按钮 -->
+    <div class="actions">
+      <button id="cancel-btn" class="btn">取消</button>
+      <button id="save-rules-btn" class="btn btn-primary">
+        保存规则
+        <span id="load-spinner"></span>
+      </button>
+    </div>
+  </div>
+  
+  <!-- 隐藏的文件导入 -->
+  <input type="file" id="import-file" style="display: none;" accept=".json">
+  
+  <script src="simple-rule-modal.js"></script>
+</body>
+</html> 

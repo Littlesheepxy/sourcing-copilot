@@ -1,5 +1,5 @@
 import React from 'react';
-import RuleEditor from '../../components/RuleEditor';
+import ExtendedRuleEditor from '../../components/RuleEditor/ExtendedRuleEditor';
 
 export default function RulesPage() {
   return (
@@ -11,10 +11,10 @@ export default function RulesPage() {
         
         <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm p-4">
           <p className="text-gray-600 dark:text-gray-300 mb-4">
-            在此页面可以设置筛选候选人的规则，系统将根据这些规则自动处理简历数据。请设置条件组合，支持嵌套的AND/OR逻辑。
+            在此页面可以设置筛选候选人的规则，系统将根据这些规则自动处理简历数据。您可以设置基本筛选条件、规则优先级以及高级筛选规则。
           </p>
           
-          <RuleEditor />
+          <ExtendedRuleEditor />
         </div>
       </div>
     </>

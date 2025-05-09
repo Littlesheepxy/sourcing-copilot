@@ -37,6 +37,20 @@ export interface Company {
   type: CompanyType;
 }
 
+// 基本筛选条件
+export interface BasicFilters {
+  position: string;       // 单值
+  companies: string[];    // 多值
+  keywords: string[];     // 多值
+}
+
+// 规则优先级设置
+export interface RulePriority {
+  id: string;            // ID，对应字段名
+  name: string;          // 显示名称
+  weight: number;        // 权重值
+}
+
 // 筛选配置
 export interface FilterConfig {
   id: string;
@@ -45,6 +59,8 @@ export interface FilterConfig {
   companies: Company[];
   keywords: string[];
   positionKeywords: string[];
+  basicFilters?: BasicFilters;       // 基本筛选条件
+  rulePriorities?: RulePriority[];   // 规则优先级
   autoGreetThreshold: number; // 自动打招呼阈值
   mode: 'manual' | 'auto';    // 模式：人工校准/自动筛选
   lastUpdated: number;        // 最后更新时间
@@ -64,6 +80,7 @@ export interface FilterResult {
   }[];
   action: 'greet' | 'skip' | 'manual'; // 执行的动作
   timestamp: number;
+  basicFilterFailed?: boolean;        // 基本筛选是否失败
 }
 
 // 人工校准记录
@@ -80,6 +97,7 @@ export interface AIRecommendation {
   companies: string[];
   keywords: string[];
   explanation: string;
+  rulePriorities?: Partial<RulePriority>[];  // AI推荐的规则优先级
 }
 
 // 应用状态

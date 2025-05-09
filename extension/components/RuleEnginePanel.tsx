@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { RulesList } from './RulesList';
 import { RuleEditor } from './RuleEditor';
 import { AIRecommendationPanel } from './AIRecommendation';
-import { Rule, AIRecommendation } from '../../shared/types';
+import { Rule, AIRecommendation, RuleType } from '../../shared/types';
 import { useFilterStore } from '../store/filterStore';
 
 // 导入模拟的DeepSeek服务API
@@ -16,11 +16,11 @@ const mockGetAIRecommendation = async (position: string): Promise<AIRecommendati
   
   return {
     rules: [
-      { type: 'position', name: '岗位匹配', weight: 100, order: 0 },
-      { type: 'keyword', name: '技能关键词', weight: 90, order: 1 },
-      { type: 'company', name: '公司背景', weight: 80, order: 2 },
-      { type: 'education', name: '学历要求', weight: 60, order: 3 },
-      { type: 'school', name: '学校背景', weight: 50, order: 4 }
+      { type: RuleType.POSITION, name: '岗位匹配', weight: 100, order: 0 },
+      { type: RuleType.KEYWORD, name: '技能关键词', weight: 90, order: 1 },
+      { type: RuleType.COMPANY, name: '公司背景', weight: 80, order: 2 },
+      { type: RuleType.EDUCATION, name: '学历要求', weight: 60, order: 3 },
+      { type: RuleType.SCHOOL, name: '学校背景', weight: 50, order: 4 }
     ],
     companies: [
       '字节跳动', '腾讯', '阿里巴巴', '百度', '美团', '京东', '快手', 

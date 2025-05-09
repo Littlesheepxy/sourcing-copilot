@@ -43,6 +43,15 @@
     {
       "resources": ["sidebar.html", "modal/rule-modal.html", "modal/rule-modal.js"],
       "matches": ["https://*.zhipin.com/*"]
+    },
+    {
+      "resources": [
+        "modal/rule-modal.html", 
+        "modal/rule-modal.js", 
+        "modal/simple-rule-modal.html", 
+        "modal/simple-rule-modal.js"
+      ],
+      "matches": ["<all_urls>"]
     }
   ]
 } 

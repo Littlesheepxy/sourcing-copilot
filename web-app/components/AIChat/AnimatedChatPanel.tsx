@@ -38,7 +38,7 @@ export default function AnimatedChatPanel() {
 
   return (
     <AnimatePresence mode="wait">
-      {isVisible && activeModule !== 'ai-chat' && (
+      {isVisible && (activeModule as string) !== 'ai-chat' && (
         <motion.div 
           className="fixed bottom-8 z-50 left-1/2 -translate-x-1/2 md:left-[calc(50%+8rem/2)]" 
           initial={{ y: 100, opacity: 0 }}

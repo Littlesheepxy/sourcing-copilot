@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sourcing Copilot - Boss直聘智能助手</title>
+  <link rel="stylesheet" href="styles/rule-modal.css">
+  <link rel="stylesheet" href="styles/settings-modal.css">
   <style>
     :root {
       --primary: #3b82f6;
@@ -28,6 +30,10 @@
       --dark-card-foreground: #f8fafc;
       --dark-border: #475569;
       --dark-input: #475569;
+      
+      /* 状态颜色 */
+      --success: #10b981;
+      --warning: #f59e0b;
     }
     
     [data-theme="dark"] {
@@ -258,6 +264,101 @@
       color: var(--muted-foreground);
       border-top: 1px solid var(--border);
     }
+    
+    /* 日志相关样式 */
+    .log-container {
+      height: 200px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 12px;
+      padding: 8px;
+      background-color: rgba(0, 0, 0, 0.02);
+      border-radius: 0 0 var(--radius) var(--radius);
+    }
+    
+    [data-theme="dark"] .log-container {
+      background-color: rgba(255, 255, 255, 0.02);
+    }
+    
+    .log-entry {
+      margin-bottom: 4px;
+      padding: 4px 8px;
+      border-radius: 3px;
+      display: flex;
+      gap: 8px;
+    }
+    
+    .log-time {
+      color: var(--muted-foreground);
+      flex-shrink: 0;
+    }
+    
+    .log-content {
+      word-break: break-word;
+    }
+    
+    .log-info {
+      border-left: 2px solid var(--primary);
+    }
+    
+    .log-warning {
+      border-left: 2px solid #f59e0b;
+      background-color: rgba(245, 158, 11, 0.05);
+    }
+    
+    .log-error {
+      border-left: 2px solid var(--danger);
+      background-color: rgba(244, 67, 54, 0.05);
+    }
+    
+    .log-success {
+      border-left: 2px solid #10b981;
+      background-color: rgba(16, 185, 129, 0.05);
+    }
+    
+    /* 清除按钮样式 */
+    .btn-clear {
+      background: none;
+      border: none;
+      color: var(--muted-foreground);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+    
+    .btn-clear:hover {
+      background-color: rgba(0, 0, 0, 0.05);
+    }
+    
+    [data-theme="dark"] .btn-clear:hover {
+      background-color: rgba(255, 255, 255, 0.05);
+    }
+    
+    /* 自动模式指示器样式 */
+    .auto-mode-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      background-color: rgba(255, 255, 255, 0.2);
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+    }
+    
+    .auto-mode-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--warning);
+    }
+    
+    .auto-mode-dot.active {
+      background-color: var(--success);
+    }
   </style>
 </head>
 <body data-theme="light">
@@ -268,26 +369,27 @@
       </div>
       <h1>Sourcing Copilot</h1>
     </div>
-    <button id="theme-toggle" class="theme-switcher">
-      <svg id="moon-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: block;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-      <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-    </button>
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <!-- 自动化状态指示器 -->
+      <div id="auto-mode-indicator" class="auto-mode-indicator">
+        <span class="auto-mode-dot"></span>
+        <span id="auto-mode-text">自动模式: 未启用</span>
+      </div>
+      <!-- 设置按钮 -->
+      <button id="settings-btn" class="theme-switcher" title="设置">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+      <button id="theme-toggle" class="theme-switcher">
+        <svg id="moon-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: block;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+      </button>
+    </div>
   </div>
   
   <div class="sidebar-content">
-    <div class="section">
-      <div class="section-header">操作模式</div>
-      <div class="section-content">
-        <div class="form-group">
-          <label for="mode-select">选择模式：</label>
-          <select id="mode-select" class="form-select">
-            <option value="calibration">校准模式 - 人工标记简历</option>
-            <option value="automatic">自动模式 - 根据规则自动打招呼</option>
-          </select>
-        </div>
-      </div>
-    </div>
-    
     <div class="section">
       <div class="section-header">筛选规则</div>
       <div class="section-content">
@@ -312,9 +414,189 @@
       <div class="section-content">
         <div class="form-group">
           <button id="start-processing-btn" class="btn btn-primary">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
             开始处理
           </button>
+          
+          <div id="processing-controls" class="btn-group" style="display: none">
+            <button id="pause-processing-btn" class="btn btn-outline">
+              <svg class="pause-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="6" y="4" width="4" height="16"></rect>
+                <rect x="14" y="4" width="4" height="16"></rect>
+              </svg>
+              <svg class="play-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+              <span class="btn-text">暂停</span>
+            </button>
+            <button id="stop-processing-btn" class="btn btn-secondary">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              </svg>
+              终止
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="section">
+      <div class="section-header">
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+          <span>处理日志</span>
+          <button id="clear-log-btn" class="btn-clear">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+            清除
+          </button>
+        </div>
+      </div>
+      <div class="section-content" style="padding: 0;">
+        <div id="log-container" class="log-container"></div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 设置面板弹窗 -->
+  <div id="settings-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>设置</h2>
+        <button id="close-settings-btn" class="close-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <!-- 选项卡菜单 -->
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="system">系统设置</button>
+          <button class="tab-btn" data-tab="ai">AI服务配置</button>
+          <button class="tab-btn" data-tab="appearance">外观</button>
+        </div>
+        
+        <!-- 系统设置选项卡 -->
+        <div class="tab-content active" id="tab-system">
+          <div class="form-group">
+            <label for="processing-speed">执行速度</label>
+            <select id="processing-speed" class="form-select">
+              <option value="slow">慢速 (每次操作间隔5-8秒)</option>
+              <option value="normal" selected>正常 (每次操作间隔3-5秒)</option>
+              <option value="fast">快速 (每次操作间隔1-3秒)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="max-candidates">每日最大候选人数量</label>
+            <select id="max-candidates" class="form-select">
+              <option value="20">20 人/天</option>
+              <option value="50" selected>50 人/天</option>
+              <option value="100">100 人/天</option>
+              <option value="200">200 人/天</option>
+              <option value="0">不限制</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <button id="save-settings-btn" class="btn btn-primary">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                <polyline points="7 3 7 8 15 8"></polyline>
+              </svg>
+              保存设置
+            </button>
+          </div>
+        </div>
+        
+        <!-- AI服务配置选项卡 -->
+        <div class="tab-content" id="tab-ai">
+          <div class="form-group">
+            <label for="ai-service">AI 服务</label>
+            <select id="ai-service" class="form-select">
+              <option value="deepseek" selected>DeepSeek API</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="api-key">API 密钥</label>
+            <div style="position: relative;">
+              <input type="password" id="api-key" class="form-select" placeholder="请输入 DeepSeek API 密钥" style="padding-right: 2.5rem;">
+              <button id="toggle-api-key-visibility" style="position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer;">
+                <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <svg id="eye-off-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="api-model">模型选择</label>
+            <select id="api-model" class="form-select">
+              <option value="deepseek-chat" selected>DeepSeek Chat</option>
+              <option value="deepseek-coder">DeepSeek Coder</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <div class="btn-group">
+              <button id="test-api-btn" class="btn btn-outline">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                  <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+                测试连接
+              </button>
+              <button id="save-api-btn" class="btn btn-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                  <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                  <polyline points="7 3 7 8 15 8"></polyline>
+                </svg>
+                保存配置
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 外观设置选项卡 -->
+        <div class="tab-content" id="tab-appearance">
+          <div class="form-group">
+            <label for="theme-selection">主题模式</label>
+            <div class="theme-selector">
+              <div class="theme-option" data-theme="light">
+                <div class="theme-preview light-theme-preview"></div>
+                <span>亮色模式</span>
+              </div>
+              <div class="theme-option" data-theme="dark">
+                <div class="theme-preview dark-theme-preview"></div>
+                <span>暗色模式</span>
+              </div>
+              <div class="theme-option" data-theme="auto">
+                <div class="theme-preview auto-theme-preview">
+                  <div class="auto-theme-half light-half"></div>
+                  <div class="auto-theme-half dark-half"></div>
+                </div>
+                <span>自动 (跟随系统)</span>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <button id="save-appearance-btn" class="btn btn-primary">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                <polyline points="7 3 7 8 15 8"></polyline>
+              </svg>
+              保存设置
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -23,10 +23,16 @@ const PageNavigation = ({ children }: { children: React.ReactNode }) => {
             
             <nav className="hidden md:flex space-x-6">
               <Link 
+                href="/simple-rules" 
+                className={`text-sm font-medium ${isActive('/simple-rules') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'}`}
+              >
+                简化规则
+              </Link>
+              <Link 
                 href="/rules" 
                 className={`text-sm font-medium ${isActive('/rules') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'}`}
               >
-                规则管理
+                高级规则
               </Link>
               <Link 
                 href="/ai-chat" 
@@ -63,10 +69,16 @@ const PageNavigation = ({ children }: { children: React.ReactNode }) => {
       <div className="md:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
         <div className="flex whitespace-nowrap px-4">
           <Link 
+            href="/simple-rules" 
+            className={`px-4 py-3 text-sm font-medium border-b-2 ${isActive('/simple-rules') ? 'border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-600 dark:text-gray-300'}`}
+          >
+            简化规则
+          </Link>
+          <Link 
             href="/rules" 
             className={`px-4 py-3 text-sm font-medium border-b-2 ${isActive('/rules') ? 'border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-600 dark:text-gray-300'}`}
           >
-            规则管理
+            高级规则
           </Link>
           <Link 
             href="/ai-chat" 

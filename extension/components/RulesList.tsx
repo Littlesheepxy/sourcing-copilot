@@ -2,7 +2,23 @@
  * 可拖拽的规则列表组件
  */
 import React, { useState } from 'react';
-import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Rule, RuleType } from '../../shared/types';
 import { useFilterStore } from '../store/filterStore';
 
@@ -33,6 +49,12 @@ interface RuleItemProps {
 // 单个规则项
 const RuleItem: React.FC<RuleItemProps> = ({ rule, index, onEdit }) => {
   const updateRule = useFilterStore(state => state.updateRule);
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: rule.id });
+  
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
   
   // 切换规则开关
   const toggleEnabled = () => {
@@ -40,119 +62,134 @@ const RuleItem: React.FC<RuleItemProps> = ({ rule, index, onEdit }) => {
   };
   
   return (
-    <Draggable draggableId={rule.id} index={index}>
-      {(provided, snapshot) => (
-        <div
-          ref={provided.innerRef}
-          {...provided.draggableProps}
-          className={`mb-2 rounded-lg border shadow-sm transition-all ${
-            snapshot.isDragging ? 'shadow-lg scale-105' : ''
-          } ${rule.enabled ? 'bg-white' : 'bg-gray-100'}`}
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`mb-2 rounded-lg border shadow-sm transition-all ${
+        transform ? 'shadow-lg scale-105' : ''
+      } ${rule.enabled ? 'bg-white' : 'bg-gray-100'}`}
+    >
+      <div className="flex items-center p-4">
+        {/* 拖拽手柄 */}
+        <div 
+          {...attributes} 
+          {...listeners}
+          className="mr-3 cursor-move text-gray-500 hover:text-gray-700"
         >
-          <div className="flex items-center p-4">
-            {/* 拖拽手柄 */}
-            <div 
-              {...provided.dragHandleProps} 
-              className="mr-3 cursor-move text-gray-500 hover:text-gray-700"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </div>
-            
-            {/* 规则类型标记 */}
-            <div className={`flex items-center justify-center w-8 h-8 rounded-full mr-3 ${ruleTypeColors[rule.type]}`}>
-              <span className="text-white">{ruleTypeIcons[rule.type]}</span>
-            </div>
-            
-            {/* 规则信息 */}
-            <div className="flex-grow">
-              <div className="flex items-center justify-between">
-                <h3 className={`font-medium ${rule.enabled ? 'text-gray-800' : 'text-gray-500'}`}>
-                  {rule.name}
-                </h3>
-                <div className="flex items-center">
-                  {/* 权重标签 */}
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    rule.enabled ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'
-                  }`}>
-                    权重 {rule.weight}
-                  </span>
-                </div>
-              </div>
-              
-              {/* 规则详情 */}
-              {rule.items && rule.items.length > 0 && (
-                <p className={`mt-1 text-sm ${rule.enabled ? 'text-gray-600' : 'text-gray-400'}`}>
-                  {rule.items.slice(0, 3).join(', ')}
-                  {rule.items.length > 3 && `... 等${rule.items.length}项`}
-                </p>
-              )}
-            </div>
-            
-            {/* 操作按钮 */}
-            <div className="flex items-center ml-4">
-              {/* 编辑按钮 */}
-              <button
-                onClick={() => onEdit(rule)}
-                className="p-1 rounded-full text-gray-400 hover:text-blue-500 focus:outline-none"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
-              </button>
-              
-              {/* 启用/禁用开关 */}
-              <button
-                onClick={toggleEnabled}
-                className={`ml-2 relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${
-                  rule.enabled ? 'bg-blue-600' : 'bg-gray-300'
-                }`}
-              >
-                <span 
-                  className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${
-                    rule.enabled ? 'translate-x-6' : 'translate-x-1'
-                  }`} 
-                />
-              </button>
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </div>
+        
+        {/* 规则类型标记 */}
+        <div className={`flex items-center justify-center w-8 h-8 rounded-full mr-3 ${ruleTypeColors[rule.type]}`}>
+          <span className="text-white">{ruleTypeIcons[rule.type]}</span>
+        </div>
+        
+        {/* 规则信息 */}
+        <div className="flex-grow">
+          <div className="flex items-center justify-between">
+            <h3 className={`font-medium ${rule.enabled ? 'text-gray-800' : 'text-gray-500'}`}>
+              {rule.name}
+            </h3>
+            <div className="flex items-center">
+              {/* 权重标签 */}
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                rule.enabled ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'
+              }`}>
+                权重 {rule.weight}
+              </span>
             </div>
           </div>
+          
+          {/* 规则详情 */}
+          {rule.items && rule.items.length > 0 && (
+            <p className={`mt-1 text-sm ${rule.enabled ? 'text-gray-600' : 'text-gray-400'}`}>
+              {rule.items.slice(0, 3).join(', ')}
+              {rule.items.length > 3 && `... 等${rule.items.length}项`}
+            </p>
+          )}
         </div>
-      )}
-    </Draggable>
+        
+        {/* 操作按钮 */}
+        <div className="flex items-center ml-4">
+          {/* 编辑按钮 */}
+          <button
+            onClick={() => onEdit(rule)}
+            className="p-1 rounded-full text-gray-400 hover:text-blue-500 focus:outline-none"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+          </button>
+          
+          {/* 启用/禁用开关 */}
+          <button
+            onClick={toggleEnabled}
+            className={`ml-2 relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${
+              rule.enabled ? 'bg-blue-600' : 'bg-gray-300'
+            }`}
+          >
+            <span 
+              className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${
+                rule.enabled ? 'translate-x-6' : 'translate-x-1'
+              }`} 
+            />
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 
 // 规则列表组件
-export const RulesList: React.FC = () => {
+export const RulesList: React.FC<{onEdit?: (rule: Rule) => void}> = ({ onEdit }) => {
   const [editingRule, setEditingRule] = useState<Rule | null>(null);
   const { rules } = useFilterStore(state => state.currentFilterConfig);
   const reorderRules = useFilterStore(state => state.reorderRules);
   
+  // 配置传感器
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+  
   // 处理拖放结束事件
-  const handleDragEnd = (result: DropResult) => {
-    // 如果没有目标或拖放位置相同，不做任何操作
-    if (!result.destination) return;
-    if (result.destination.index === result.source.index) return;
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
     
-    // 获取规则ID列表
-    const ruleIds = rules.map(rule => rule.id);
-    
-    // 移动规则ID
-    const [removed] = ruleIds.splice(result.source.index, 1);
-    ruleIds.splice(result.destination.index, 0, removed);
-    
-    // 更新规则顺序
-    reorderRules(ruleIds);
+    if (over && active.id !== over.id) {
+      // 获取规则ID列表
+      const ruleIds = rules.map(rule => rule.id);
+      
+      // 获取拖拽前后的索引
+      const oldIndex = ruleIds.indexOf(active.id.toString());
+      const newIndex = ruleIds.indexOf(over.id.toString());
+      
+      if (oldIndex !== -1 && newIndex !== -1) {
+        // 移动规则ID
+        const newRuleIds = arrayMove(ruleIds, oldIndex, newIndex);
+        
+        // 更新规则顺序
+        reorderRules(newRuleIds);
+      }
+    }
   };
   
   // 编辑规则
   const handleEditRule = (rule: Rule) => {
-    setEditingRule(rule);
+    if (onEdit) {
+      onEdit(rule);
+    } else {
+      setEditingRule(rule);
+    }
   };
   
   // 按顺序排序规则
   const sortedRules = [...rules].sort((a, b) => a.order - b.order);
+  const ruleIds = sortedRules.map(rule => rule.id);
   
   return (
     <div className="p-4">
@@ -161,27 +198,27 @@ export const RulesList: React.FC = () => {
         <p className="text-sm text-gray-500">拖拽规则调整顺序</p>
       </div>
       
-      <DragDropContext onDragEnd={handleDragEnd}>
-        <Droppable droppableId="rules-list">
-          {(provided) => (
-            <div 
-              ref={provided.innerRef}
-              {...provided.droppableProps}
-              className="space-y-2"
-            >
-              {sortedRules.map((rule, index) => (
-                <RuleItem 
-                  key={rule.id} 
-                  rule={rule} 
-                  index={index} 
-                  onEdit={handleEditRule}
-                />
-              ))}
-              {provided.placeholder}
-            </div>
-          )}
-        </Droppable>
-      </DragDropContext>
+      <DndContext 
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext 
+          items={ruleIds}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="space-y-2">
+            {sortedRules.map((rule, index) => (
+              <RuleItem 
+                key={rule.id} 
+                rule={rule} 
+                index={index} 
+                onEdit={handleEditRule}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
       
       {/* 编辑规则弹窗 - 可以根据需要实现 */}
       {editingRule && (

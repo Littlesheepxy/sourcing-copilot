@@ -23,7 +23,12 @@ const navItems = [
     icon: <LayoutDashboard className="w-5 h-5" />
   },
   { 
-    name: '规则设置', 
+    name: '简化规则', 
+    module: 'simple-rules', 
+    icon: <ClipboardList className="w-5 h-5" />
+  },
+  { 
+    name: '高级规则', 
     module: 'rules', 
     icon: <ClipboardList className="w-5 h-5" />
   },
