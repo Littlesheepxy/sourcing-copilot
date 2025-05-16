@@ -44,12 +44,12 @@ const SortableRulePriorityItem = ({
     >
       <div {...attributes} {...listeners} className="cursor-move p-1 mr-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="8" y1="6" x2="21" y2="6" />
-          <line x1="8" y1="12" x2="21" y2="12" />
-          <line x1="8" y1="18" x2="21" y2="18" />
-          <line x1="3" y1="6" x2="3.01" y2="6" />
-          <line x1="3" y1="12" x2="3.01" y2="12" />
-          <line x1="3" y1="18" x2="3.01" y2="18" />
+          <circle cx="9" cy="12" r="1"></circle>
+          <circle cx="9" cy="5" r="1"></circle>
+          <circle cx="9" cy="19" r="1"></circle>
+          <circle cx="15" cy="12" r="1"></circle>
+          <circle cx="15" cy="5" r="1"></circle>
+          <circle cx="15" cy="19" r="1"></circle>
         </svg>
       </div>
       <span className="flex-grow font-medium">{priority.name}</span>
@@ -111,12 +111,12 @@ const RulePriorityPanel: React.FC<RulePriorityPanelProps> = ({
   };
   
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 mb-6">
+    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-sm mb-6">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold">规则优先顺序和权重</h2>
+        <h2 className="text-xl font-medium">规则优先顺序</h2>
         <button 
           onClick={() => setShowAIOptimization(!showAIOptimization)}
-          className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+          className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm"
         >
           AI优化建议
         </button>
@@ -141,7 +141,7 @@ const RulePriorityPanel: React.FC<RulePriorityPanelProps> = ({
           </ol>
           <button 
             onClick={applyAISuggestions}
-            className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+            className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm"
           >
             应用这些建议
           </button>

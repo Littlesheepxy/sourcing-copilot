@@ -1,0 +1,75 @@
+{
+  "name": "sourcing-copilot",
+  "version": "1.0.0",
+  "description": "Boss直聘Sourcing智能助手",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win"
+  },
+  "keywords": [
+    "Boss直聘",
+    "Sourcing",
+    "招聘",
+    "自动化"
+  ],
+  "author": "Your Company",
+  "license": "MIT",
+  "dependencies": {
+    "find-process": "^1.4.7"
+  },
+  "devDependencies": {
+    "electron": "^27.0.0",
+    "electron-builder": "^24.6.4"
+  },
+  "build": {
+    "appId": "com.yourcompany.sourcingcopilot",
+    "productName": "Sourcing Copilot",
+    "files": [
+      "main.js",
+      "preload.js",
+      "loading.html",
+      "error.html",
+      "build/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../web-app",
+        "to": "web-app"
+      },
+      {
+        "from": "../dist",
+        "to": "server"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": "dmg",
+      "icon": "../icon.icns"
+    },
+    "dmg": {
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "../icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+} 

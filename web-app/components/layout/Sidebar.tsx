@@ -20,36 +20,37 @@ const navItems = [
   { 
     name: '仪表盘', 
     module: 'home', 
+    path: '/',
     icon: <LayoutDashboard className="w-5 h-5" />
   },
   { 
-    name: '简化规则', 
+    name: '规则设置', 
     module: 'simple-rules', 
-    icon: <ClipboardList className="w-5 h-5" />
-  },
-  { 
-    name: '高级规则', 
-    module: 'rules', 
+    path: '/simple-rules',
     icon: <ClipboardList className="w-5 h-5" />
   },
   { 
     name: 'AI 对话', 
     module: 'ai-chat', 
+    path: '/ai-chat',
     icon: <MessageSquare className="w-5 h-5" />
   },
   { 
     name: '候选人管理', 
     module: 'candidates', 
+    path: '/candidates',
     icon: <Users className="w-5 h-5" />
   },
   { 
     name: '操作日志', 
     module: 'logs', 
+    path: '/logs',
     icon: <ClipboardList className="w-5 h-5" />
   },
   { 
     name: '设置', 
     module: 'settings', 
+    path: '/settings',
     icon: <Settings className="w-5 h-5" />
   }
 ];
@@ -58,6 +59,7 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const { activeModule, setActiveModule } = useStore();
   
+  // 只更新活动模块状态，不进行页面导航
   const handleNavClick = (module: string) => {
     setActiveModule(module as any);
   };

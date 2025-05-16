@@ -3,19 +3,17 @@
  * 用于将简化规则引擎集成到扩展插件中
  */
 
-import { SimpleRulesEngine, SimpleRulesConfig, CandidateData, SimpleEvaluationResult } from '../../shared/core/rules-engine/simple-rules-engine';
-import { SimpleRulesAdapter } from '../../shared/core/rules-engine/simple-adapter';
-import { UnifiedRuleGroup, RuleGroup } from '../../shared/core/rules-engine/types';
+import { SimpleRulesEngine, SimpleRulesConfig, SimpleEvaluationResult } from '../../shared/core/rules-engine/simple-rules-engine';
+import { LogicalOperator } from '../../shared/core/rules-engine/types';
+import { CandidateData } from '../../shared/types';
 
 // 简化规则引擎连接器
 export class SimpleRulesConnector {
   private engine: SimpleRulesEngine;
-  private adapter: SimpleRulesAdapter;
   private config: SimpleRulesConfig | null = null;
   
   constructor() {
     this.engine = new SimpleRulesEngine();
-    this.adapter = new SimpleRulesAdapter();
     this.loadConfig();
     this.setupMessageListeners();
   }
@@ -34,31 +32,9 @@ export class SimpleRulesConnector {
             return;
           }
           
-          // 尝试加载统一规则并转换
-          chrome.storage.local.get(['unified_rules'], (unifiedResult) => {
-            if (unifiedResult.unified_rules) {
-              const parsedUnifiedRules = JSON.parse(unifiedResult.unified_rules) as UnifiedRuleGroup;
-              this.config = this.adapter.convertToSimpleRules(parsedUnifiedRules);
-              resolve();
-              return;
-            }
-            
-            // 尝试加载旧版逻辑规则并转换(通过统一规则)
-            chrome.storage.local.get(['rules'], (rulesResult) => {
-              if (rulesResult.rules) {
-                const parsedRules = JSON.parse(rulesResult.rules) as RuleGroup;
-                // 这里需要先将旧规则转换为统一规则格式
-                // 后续实现
-                this.config = this.engine.createDefaultConfig();
-                resolve();
-                return;
-              }
-              
-              // 使用默认配置
-              this.config = this.engine.createDefaultConfig();
-              resolve();
-            });
-          });
+          // 使用默认配置
+          this.config = this.engine.createDefaultConfig();
+          resolve();
         });
       } catch (error) {
         console.error('加载规则配置失败:', error);
@@ -83,20 +59,8 @@ export class SimpleRulesConnector {
         chrome.storage.local.set({
           simpleRulesConfig: config
         }, () => {
-          // 转换并保存统一规则格式
-          const unifiedRules = this.adapter.convertToUnifiedRules(config);
-          chrome.storage.local.set({
-            unified_rules: JSON.stringify(unifiedRules)
-          }, () => {
-            // 转换并保存旧版逻辑规则格式(兼容旧版)
-            const logicRules = this.adapter.convertToLogicRules(config);
-            chrome.storage.local.set({
-              rules: JSON.stringify(logicRules)
-            }, () => {
-              console.log('规则配置保存成功');
-              resolve();
-            });
-          });
+          console.log('规则配置保存成功');
+          resolve();
         });
       } catch (error) {
         console.error('保存规则配置失败:', error);

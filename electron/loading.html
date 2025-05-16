@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>加载中 - Sourcing Copilot</title>
+    <style>
+        body {
+            font-family: 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            text-align: center;
+        }
+        h1 {
+            margin-bottom: 30px;
+            font-weight: 500;
+            font-size: 28px;
+            color: #1890ff;
+        }
+        .loader {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(24, 144, 255, 0.2);
+            border-top-color: #1890ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 30px;
+        }
+        p {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        .status {
+            font-size: 14px;
+            color: #999;
+            margin-top: 20px;
+        }
+        
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Sourcing Copilot</h1>
+    <div class="loader"></div>
+    <p>正在启动服务，请稍候...</p>
+    <p class="status">这可能需要几秒钟时间</p>
+    
+    <script>
+        let dots = '';
+        let statusEl = document.querySelector('.status');
+        let counter = 0;
+        
+        setInterval(() => {
+            counter++;
+            dots = '.'.repeat(counter % 4);
+            statusEl.textContent = `正在启动后端服务${dots}`;
+        }, 500);
+    </script>
+</body>
+</html> 

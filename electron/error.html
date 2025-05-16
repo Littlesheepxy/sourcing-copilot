@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>启动失败 - Sourcing Copilot</title>
+    <style>
+        body {
+            font-family: 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            text-align: center;
+            padding: 0 20px;
+        }
+        h1 {
+            margin-bottom: 20px;
+            font-weight: 500;
+            font-size: 28px;
+            color: #ff4d4f;
+        }
+        .error-icon {
+            width: 60px;
+            height: 60px;
+            background-color: #ff4d4f;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 30px;
+            color: white;
+            font-size: 40px;
+            font-weight: bold;
+        }
+        p {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 10px;
+            max-width: 500px;
+        }
+        .error-card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+        }
+        .error-title {
+            font-weight: 500;
+            margin-bottom: 10px;
+            color: #ff4d4f;
+        }
+        .error-detail {
+            font-size: 14px;
+            background-color: #f8f8f8;
+            padding: 15px;
+            border-radius: 4px;
+            color: #666;
+            text-align: left;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+        .button {
+            padding: 10px 20px;
+            background-color: #1890ff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background-color 0.3s;
+        }
+        .button:hover {
+            background-color: #40a9ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-icon">!</div>
+    <h1>启动失败</h1>
+    <p>后端服务启动失败，无法继续运行应用。</p>
+    
+    <div class="error-card">
+        <div class="error-title">可能的原因:</div>
+        <ul style="text-align: left; margin: 10px 0;">
+            <li>端口 8000 已被占用</li>
+            <li>Python环境配置问题</li>
+            <li>依赖库安装不完整</li>
+            <li>权限不足</li>
+        </ul>
+        
+        <div class="error-title">建议操作:</div>
+        <ol style="text-align: left; margin: 10px 0;">
+            <li>检查是否有其他Sourcing Copilot实例在运行</li>
+            <li>重启应用程序</li>
+            <li>重启电脑</li>
+            <li>重新安装应用</li>
+        </ol>
+    </div>
+    
+    <button class="button" onclick="window.location.reload()">重试</button>
+    
+    <script>
+        // 向主进程报告错误
+        if (window.electronAPI) {
+            window.electronAPI.logError('启动失败：后端服务无法启动');
+        }
+    </script>
+</body>
+</html> 

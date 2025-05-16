@@ -41,13 +41,11 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["sidebar.html", "modal/rule-modal.html", "modal/rule-modal.js"],
+      "resources": ["sidebar.html"],
       "matches": ["https://*.zhipin.com/*"]
     },
     {
       "resources": [
-        "modal/rule-modal.html", 
-        "modal/rule-modal.js", 
         "modal/simple-rule-modal.html", 
         "modal/simple-rule-modal.js"
       ],

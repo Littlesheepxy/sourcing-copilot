@@ -1,86 +1,21 @@
 /**
- * 共享类型定义
+ * 共享类型定义 - 简化版
+ * 只保留简单规则引擎所需的类型
  */
 
-// 筛选规则类型
-export enum RuleType {
-  POSITION = 'position', // 岗位（硬条件）
-  COMPANY = 'company',   // 公司（包含竞对公司）
-  KEYWORD = 'keyword',   // 关键词（技能关键词）
-  SCHOOL = 'school',     // 学校（优先考虑）
-  EDUCATION = 'education' // 学历
-}
+// 基本的数据类型
 
-// 公司类型
-export enum CompanyType {
-  COMPETITOR = 'competitor', // 竞对公司
-  TARGET = 'target',         // 目标公司
-  NORMAL = 'normal'          // 普通公司
-}
-
-// 单个规则配置
-export interface Rule {
-  id: string;           // 规则ID
-  type: RuleType;       // 规则类型
-  name: string;         // 规则名称
-  weight: number;       // 权重 (0-100)
-  enabled: boolean;     // 是否启用
-  order: number;        // 顺序
-  items?: string[];     // 对于公司和关键词，可以有多个项目
-  threshold?: number;   // 阈值 (对于某些规则)
-}
-
-// 公司信息
-export interface Company {
+// 候选人数据结构
+export interface CandidateData {
   id: string;
-  name: string;
-  type: CompanyType;
-}
-
-// 基本筛选条件
-export interface BasicFilters {
-  position: string;       // 单值
-  companies: string[];    // 多值
-  keywords: string[];     // 多值
-}
-
-// 规则优先级设置
-export interface RulePriority {
-  id: string;            // ID，对应字段名
-  name: string;          // 显示名称
-  weight: number;        // 权重值
-}
-
-// 筛选配置
-export interface FilterConfig {
-  id: string;
-  name: string;
-  rules: Rule[];
-  companies: Company[];
-  keywords: string[];
-  positionKeywords: string[];
-  basicFilters?: BasicFilters;       // 基本筛选条件
-  rulePriorities?: RulePriority[];   // 规则优先级
-  autoGreetThreshold: number; // 自动打招呼阈值
-  mode: 'manual' | 'auto';    // 模式：人工校准/自动筛选
-  lastUpdated: number;        // 最后更新时间
-}
-
-// 筛选结果
-export interface FilterResult {
-  candidateId: string;
-  candidateName: string;
-  score: number;
-  matchDetails: {
-    ruleId: string;
-    ruleName: string;
-    matched: boolean;
-    score: number;
-    details?: string;
-  }[];
-  action: 'greet' | 'skip' | 'manual'; // 执行的动作
-  timestamp: number;
-  basicFilterFailed?: boolean;        // 基本筛选是否失败
+  name?: string;
+  position?: string;
+  company?: string[];
+  skills?: string[];
+  schools?: string[];
+  education?: string;
+  experience?: number;
+  [key: string]: any;
 }
 
 // 人工校准记录
@@ -91,21 +26,16 @@ export interface CalibrationRecord {
   timestamp: number;
 }
 
-// AI建议
-export interface AIRecommendation {
-  rules: Partial<Rule>[];
+// 基本筛选条件
+export interface BasicFilters {
+  position: string;
   companies: string[];
   keywords: string[];
-  explanation: string;
-  rulePriorities?: Partial<RulePriority>[];  // AI推荐的规则优先级
 }
 
-// 应用状态
-export interface AppState {
-  currentFilterConfig: FilterConfig;
-  filterConfigs: FilterConfig[];
-  filterResults: FilterResult[];
-  calibrationRecords: CalibrationRecord[];
-  isProcessing: boolean;
-  activeTab: string;
+// 规则优先级
+export interface RulePriority {
+  id: string;
+  name: string;
+  weight: number;
 } 

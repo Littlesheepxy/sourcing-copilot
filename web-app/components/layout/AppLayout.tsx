@@ -12,20 +12,24 @@ export default function AppLayout() {
   const { themeConfig, showAIChat, setShowAIChat, setActiveModule } = useStore();
   const pathname = usePathname();
   
-  // 根据路径设置活动模块
+  // 初始加载时根据路径设置活动模块，但不会在侧边栏导航时干扰
   useEffect(() => {
-    const pathToModule = {
-      '/': 'home',
-      '/candidates': 'candidates',
-      '/rules': 'rules',
-      '/logs': 'logs',
-      '/settings': 'settings',
-      '/ai-chat': 'ai-chat'
-    } as const;
-    
-    const module = pathToModule[pathname as keyof typeof pathToModule] || 'home';
-    setActiveModule(module);
-  }, [pathname, setActiveModule]);
+    // 只在应用首次加载或从外部直接访问URL时设置活动模块
+    if (typeof window !== 'undefined' && window.history.state?.idx === 0) {
+      const pathToModule = {
+        '/': 'home',
+        '/candidates': 'candidates',
+        '/rules': 'simple-rules', // 将 rules 路径也映射到 simple-rules 模块
+        '/simple-rules': 'simple-rules',
+        '/logs': 'logs',
+        '/settings': 'settings',
+        '/ai-chat': 'ai-chat'
+      } as const;
+      
+      const module = pathToModule[pathname as keyof typeof pathToModule] || 'home';
+      setActiveModule(module);
+    }
+  }, []);
   
   // 主题模式处理
   useEffect(() => {

@@ -1,0 +1,12 @@
+# 基础依赖
+playwright==1.30.0
+asyncio
+python-dotenv
+
+# OCR 相关依赖
+paddlepaddle
+paddleocr
+
+# 其他依赖
+thefuzz
+python-Levenshtein 

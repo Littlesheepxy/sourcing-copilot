@@ -29,9 +29,72 @@ document.addEventListener('DOMContentLoaded', async () => {
   const eyeIcon = document.getElementById('eye-icon');
   const eyeOffIcon = document.getElementById('eye-off-icon');
   
+  // 设置模态窗口相关元素
+  const settingsBtn = document.getElementById('settings-btn');
+  const settingsModal = document.getElementById('settings-modal');
+  const closeSettingsBtn = document.getElementById('close-settings-btn');
+  
+  // 页面状态相关元素
+  const pageStatusDot = document.getElementById('page-status-dot');
+  const pageStatusText = document.getElementById('page-status-text');
+  const jobPositionText = document.getElementById('job-position-text');
+  
   // 处理状态
   let isProcessing = false;
   let isPaused = false;
+  
+  // 设置按钮点击事件
+  if (settingsBtn) {
+    settingsBtn.addEventListener('click', () => {
+      animateButtonClick(settingsBtn);
+      // 显示设置模态窗口
+      if (settingsModal) {
+        settingsModal.style.display = 'flex';
+      }
+    });
+  }
+  
+  // 关闭设置模态窗口
+  if (closeSettingsBtn) {
+    closeSettingsBtn.addEventListener('click', () => {
+      if (settingsModal) {
+        settingsModal.style.display = 'none';
+      }
+    });
+  }
+  
+  // 点击模态窗口外部关闭模态窗口
+  if (settingsModal) {
+    settingsModal.addEventListener('click', (e) => {
+      if (e.target === settingsModal) {
+        settingsModal.style.display = 'none';
+      }
+    });
+  }
+  
+  // 设置选项卡切换功能
+  const tabButtons = document.querySelectorAll('.tab-btn');
+  const tabContents = document.querySelectorAll('.tab-content');
+  
+  if (tabButtons.length > 0) {
+    tabButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        // 移除所有tab-btn的active类
+        tabButtons.forEach((btn) => btn.classList.remove('active'));
+        // 移除所有tab-content的active类
+        tabContents.forEach((content) => content.classList.remove('active'));
+        
+        // 添加当前tab-btn的active类
+        button.classList.add('active');
+        // 获取对应的tab内容并显示
+        const tabName = button.getAttribute('data-tab');
+        const tabContent = document.getElementById(`tab-${tabName}`);
+        if (tabContent) {
+          tabContent.classList.add('active');
+        }
+      });
+    });
+  }
   
   // 加载和初始化主题设置
   initializeTheme();
@@ -44,6 +107,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // 加载AI服务配置
   loadAIServiceConfig();
+  
+  // 初始加载页面状态
+  loadPageStatus();
+  
+  // 监听页面状态更新
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'pageStatusUpdate') {
+      updatePageStatusUI(message.status);
+    }
+  });
   
   // 编辑规则按钮
   editRulesBtn.addEventListener('click', () => {
@@ -462,6 +535,53 @@ document.addEventListener('DOMContentLoaded', async () => {
       showToast('API连接测试失败: ' + error.message, 'error');
     }
   }
+  
+  // 初始化加载页面状态
+  async function loadPageStatus() {
+    try {
+      // 尝试从存储中获取最新状态
+      const result = await chrome.storage.local.get(['currentPageStatus']);
+      if (result.currentPageStatus) {
+        updatePageStatusUI(result.currentPageStatus);
+      }
+      
+      // 从当前活动标签页获取最新状态
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (activeTab && activeTab.id) {
+        try {
+          const response = await chrome.tabs.sendMessage(activeTab.id, { type: 'getPageStatus' });
+          if (response) {
+            updatePageStatusUI(response);
+          }
+        } catch (error) {
+          console.log('无法从内容脚本获取页面状态', error);
+        }
+      }
+    } catch (error) {
+      console.error('加载页面状态失败:', error);
+    }
+  }
+  
+  // 更新页面状态UI
+  function updatePageStatusUI(status) {
+    if (!status) return;
+    
+    if (status.isRecommendPage) {
+      pageStatusDot.classList.add('connected');
+      pageStatusDot.classList.remove('error');
+      pageStatusText.textContent = '已连接到推荐页面';
+    } else {
+      pageStatusDot.classList.remove('connected');
+      pageStatusDot.classList.add('error');
+      pageStatusText.textContent = '未连接到推荐页面';
+    }
+    
+    if (status.jobPosition && status.jobPosition !== '未检测到岗位信息') {
+      jobPositionText.textContent = status.jobPosition;
+    } else {
+      jobPositionText.textContent = '未检测到岗位信息';
+    }
+  }
 });
 
 // 初始化主题
@@ -588,27 +708,6 @@ function openSimpleRuleModal() {
   });
 }
 
-// 打开规则编辑弹窗
-function openRuleModal() {
-  // 获取当前标签页
-  chrome.tabs.query({ active: true, currentWindow: true }, ([activeTab]) => {
-    if (activeTab && activeTab.id) {
-      // 向当前标签页注入弹窗
-      chrome.scripting.executeScript({
-        target: { tabId: activeTab.id },
-        function: injectRuleModal
-      }).catch(error => {
-        console.error('注入规则弹窗失败:', error);
-        // 如果注入失败，打开模态框页面
-        chrome.tabs.create({ url: chrome.runtime.getURL('modal/rule-modal.html') });
-      });
-    } else {
-      // 如果无法获取当前标签页，直接打开模态框页面
-      chrome.tabs.create({ url: chrome.runtime.getURL('modal/rule-modal.html') });
-    }
-  });
-}
-
 // 在页面中注入简易规则弹窗
 function injectSimpleRuleModal() {
   // 检查是否已存在弹窗
@@ -655,62 +754,6 @@ function injectSimpleRuleModal() {
   // 监听来自iframe的消息
   window.addEventListener('message', (event) => {
     if (event.data.type === 'CLOSE_SIMPLE_RULE_MODAL') {
-      if (document.body.contains(container)) {
-        document.body.removeChild(container);
-      }
-    }
-  });
-  
-  // 添加到页面
-  document.body.appendChild(container);
-}
-
-// 在页面中注入规则弹窗
-function injectRuleModal() {
-  // 检查是否已存在弹窗
-  if (document.getElementById('sourcing-rule-modal-container')) {
-    return;
-  }
-  
-  // 创建弹窗容器
-  const container = document.createElement('div');
-  container.id = 'sourcing-rule-modal-container';
-  container.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: rgba(0, 0, 0, 0.5);
-  `;
-  
-  // 创建iframe来加载弹窗
-  const iframe = document.createElement('iframe');
-  iframe.src = chrome.runtime.getURL('modal/rule-modal.html');
-  iframe.style.cssText = `
-    width: 90%;
-    max-width: 800px;
-    height: 90vh;
-    border: none;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  `;
-  container.appendChild(iframe);
-  
-  // 点击容器背景关闭弹窗
-  container.addEventListener('click', (e) => {
-    if (e.target === container) {
-      document.body.removeChild(container);
-    }
-  });
-  
-  // 监听来自iframe的消息
-  window.addEventListener('message', (event) => {
-    if (event.data.type === 'CLOSE_RULE_MODAL') {
       if (document.body.contains(container)) {
         document.body.removeChild(container);
       }

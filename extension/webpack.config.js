@@ -62,8 +62,6 @@ module.exports = {
         { from: 'icons', to: 'icons' },
         { from: 'sidebar.html', to: '.' },
         { from: 'sidebar.js', to: '.' },
-        { from: 'modal/rule-modal.html', to: 'modal' },
-        { from: 'modal/rule-modal.js', to: 'modal' },
         { from: 'modal/simple-rule-modal.html', to: 'modal' },
         { from: 'modal/simple-rule-modal.js', to: 'modal' }
       ],

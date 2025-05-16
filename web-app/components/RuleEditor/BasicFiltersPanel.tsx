@@ -105,34 +105,34 @@ const BasicFiltersPanel: React.FC<BasicFiltersPanelProps> = ({
   };
   
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 mb-6">
-      <h2 className="text-xl font-semibold mb-4">基本筛选条件</h2>
+    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-sm mb-6">
+      <h2 className="text-xl font-medium mb-4">基本筛选条件</h2>
       
       {/* 岗位筛选 */}
       <div className="mb-4">
         <label className="block text-sm font-medium mb-2">
-          岗位（必填）：
+          岗位（必填）
         </label>
         <input
           type="text"
           value={position}
           onChange={(e) => setPosition(e.target.value)}
           placeholder="请输入岗位名称"
-          className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800"
+          className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
         />
-        <p className="text-xs text-gray-500 mt-1">例如：Java工程师、产品经理、UI设计师等</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">例如：Java工程师、产品经理、UI设计师等</p>
       </div>
       
       {/* 公司筛选 */}
       <div className="mb-4">
         <label className="block text-sm font-medium mb-2">
-          公司（必填）：
+          公司（必填）
         </label>
         <div className="flex flex-wrap gap-2 mb-2">
           {basicFilters.companies.map(company => (
             <span 
               key={company}
-              className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 px-2 py-1 rounded-full text-sm flex items-center"
+              className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200 px-2 py-1 rounded-full text-sm flex items-center"
             >
               {company}
               <button 
@@ -151,11 +151,11 @@ const BasicFiltersPanel: React.FC<BasicFiltersPanelProps> = ({
             onChange={(e) => setCompanyInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleAddCompany()}
             placeholder="输入公司名称并回车添加"
-            className="flex-grow p-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800"
+            className="flex-grow p-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
           />
           <button
             onClick={handleAddCompany}
-            className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded"
           >
             添加
           </button>
@@ -186,13 +186,13 @@ const BasicFiltersPanel: React.FC<BasicFiltersPanelProps> = ({
       {/* 关键词筛选 */}
       <div className="mb-4">
         <label className="block text-sm font-medium mb-2">
-          关键词（可选）：
+          关键词（可选）
         </label>
         <div className="flex flex-wrap gap-2 mb-2">
           {basicFilters.keywords.map(keyword => (
             <span 
               key={keyword}
-              className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-2 py-1 rounded-full text-sm flex items-center"
+              className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200 px-2 py-1 rounded-full text-sm flex items-center"
             >
               {keyword}
               <button 
@@ -211,11 +211,11 @@ const BasicFiltersPanel: React.FC<BasicFiltersPanelProps> = ({
             onChange={(e) => setKeywordInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleAddKeyword()}
             placeholder="输入关键词并回车添加"
-            className="flex-grow p-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800"
+            className="flex-grow p-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
           />
           <button
             onClick={handleAddKeyword}
-            className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded"
           >
             添加
           </button>
