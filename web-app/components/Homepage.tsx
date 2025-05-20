@@ -1,30 +1,24 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
 import { 
-  ArrowRight, Calendar, Users, FilePlus, Settings, Bot, Play, 
-  StopCircle, AlertCircle, CheckCircle, Circle, AlertTriangle,
-  ExternalLink
+  AlertCircle, AlertTriangle, CheckCircle, Circle, ArrowRight, 
+  ExternalLink, Calendar, Users, FilePlus, Settings, Bot, Play, StopCircle, Crown, ChevronUp, ChevronDown, TrendingUp, Award,
+  Clock, FileText, Brain, KanbanSquare, Zap, MessageCircle, LightbulbIcon, HelpCircle
 } from "lucide-react";
 import { useStore } from "../store/store";
-
-// 卡片容器动画
-const containerVariants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1
-    }
-  }
-};
-
-// 卡片项动画
-const cardVariants = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0 }
-};
+import { 
+  SummarySection, 
+  TaskCenterSection, 
+  IncentiveSection, 
+  SupportSection 
+} from './Dashboard';
+import DashboardCard from "./ui/DashboardCard";
+import TabsCard from "./ui/TabsCard";
+import VerticalTabsCard from "./ui/VerticalTabsCard";
+import PositionProgress from "./Dashboard/PositionProgress";
+import AutomationStatus from "./Dashboard/AutomationStatus"; 
+import QuickAccessGrid from "./Dashboard/QuickAccessGrid";
 
 // 引导步骤
 const steps = [
@@ -249,6 +243,11 @@ export default function Homepage() {
     setErrorMessage(null);
   };
   
+  // 联系客服
+  const handleContactSupport = () => {
+    window.open('https://slack.com/app_redirect?channel=U08G73V05TM', '_blank');
+  };
+  
   // 组件加载时获取状态和检测浏览器
   useEffect(() => {
     fetchStatus();
@@ -261,15 +260,77 @@ export default function Homepage() {
     return () => clearInterval(intervalId);
   }, []);
 
+  // 模拟数据
+  const timeStats = {
+    savedHours: 24,
+    efficiency: 35
+  };
+  
+  const resumeStats = {
+    total: systemStatus.processedCount + 20,
+    processed: systemStatus.processedCount,
+    greeted: systemStatus.greetedCount
+  };
+  
+  const aiSuggestion = "将筛选条件中的'工作年限'从3年调整到2年可提高匹配率25%";
+  
+  const positionProgress = {
+    total: 100,
+    matched: 65,
+    contacted: 42,
+    replied: 18
+  };
+  
+  const automationStatus = {
+    running: systemStatus.running,
+    taskCount: 80,
+    completedTasks: systemStatus.processedCount,
+    nextScheduledTime: systemStatus.running ? "今天 15:30" : undefined
+  };
+  
+  const rankingData = {
+    industry: "互联网",
+    ranking: 12,
+    totalCompanies: 230,
+    change: 3
+  };
+  
+  const trendItems = [
+    { name: "平均招聘效率", value: 4.8, change: 12 },
+    { name: "简历处理速度", value: 56, change: 8 },
+    { name: "候选人回复率", value: "32%", change: -5 }
+  ];
+  
+  const achievements = [
+    { id: "1", name: "效率之星", icon: "🚀", description: "一天内处理50份简历", unlocked: true },
+    { id: "2", name: "招聘达人", icon: "🏆", description: "成功招聘10名员工", unlocked: true },
+    { id: "3", name: "沟通高手", icon: "💬", description: "回复率达到40%", unlocked: false, progress: { current: 32, total: 40 } },
+    { id: "4", name: "规则大师", icon: "📋", description: "创建5条高效筛选规则", unlocked: false, progress: { current: 3, total: 5 } },
+    { id: "5", name: "AI助手", icon: "🤖", description: "使用AI优化10次搜索", unlocked: false, progress: { current: 4, total: 10 } },
+    { id: "6", name: "全能选手", icon: "⭐", description: "使用所有功能模块", unlocked: false, progress: { current: 3, total: 5 } }
+  ];
+  
+  const tips = [
+    { id: "1", title: "快速筛选技巧", content: "使用「Ctrl+F」在候选人列表中快速查找关键词，提高筛选效率。" },
+    { id: "2", title: "自动化提醒", content: "设置每日提醒，系统会在指定时间自动执行筛选任务并向您推送结果。" },
+    { id: "3", title: "简历评分技巧", content: "关注候选人技能匹配度评分，分数越高表示越符合您的职位要求。" }
+  ];
+  
+  const faqs = [
+    { id: "1", question: "如何创建自定义筛选规则？", answer: "进入「规则设置」页面，点击「新建规则」按钮，设置筛选条件后保存即可。" },
+    { id: "2", question: "系统支持哪些招聘网站？", answer: "目前支持Boss直聘、拉勾网、智联招聘等主流招聘平台，未来将支持更多平台。" },
+    { id: "3", question: "如何导出候选人数据？", answer: "在「候选人管理」页面，选择需要导出的候选人，点击「导出」按钮即可下载Excel格式文件。" }
+  ];
+
   return (
-    <div className="space-y-8 py-6 px-4">
-      <section>
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-3xl font-bold">仪表盘</h1>
+    <div className="p-4 sm:p-6 max-w-full xl:max-w-7xl mx-auto">
+      {/* 顶部标题与状态指示器 */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-2">
+          <h1 className="text-2xl sm:text-3xl font-bold">仪表盘</h1>
           
           {/* 系统状态指示器 */}
           <div className="flex items-center space-x-2 text-sm">
-            <div className={`w-3 h-3 rounded-full ${systemStatus.running ? 'bg-green-500' : 'bg-red-500'}`}></div>
+          <div className={`w-3 h-3 rounded-full ${systemStatus.running ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
             <span className="text-gray-700 dark:text-gray-300">
               {systemStatus.running ? '自动化运行中' : '自动化已停止'}
             </span>
@@ -278,7 +339,7 @@ export default function Homepage() {
         
         {/* 错误消息提示 */}
         {errorMessage && (
-          <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 rounded-lg flex items-start">
+        <div className="mb-4 sm:mb-6 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 rounded-lg flex items-start">
             <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
             <div className="flex-1">{errorMessage}</div>
             <button 
@@ -291,157 +352,131 @@ export default function Homepage() {
           </div>
         )}
         
-        {/* 流程指示器 */}
-        <div className="w-full mb-6">
-          <div className="flex justify-between mb-2">
-            <span className="text-sm text-gray-500">使用流程</span>
-          </div>
-          <div className="flex items-center">
-            {steps.map((step, index) => (
-              <React.Fragment key={index}>
-                <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
-                  currentStep > index 
-                    ? 'bg-green-500 text-white' 
-                    : currentStep === index 
-                      ? 'bg-blue-500 text-white' 
-                      : 'bg-gray-200 text-gray-400'
-                }`}>
-                  {index + 1}
-                </div>
-                {index < steps.length - 1 && (
-                  <div className={`flex-1 h-1 mx-2 ${
-                    currentStep > index ? 'bg-green-500' : 'bg-gray-200'
-                  }`}></div>
-                )}
-              </React.Fragment>
-            ))}
-          </div>
-          <div className="flex justify-between mt-1">
-            {steps.map((step, index) => (
-              <span key={index} className={`text-xs ${currentStep >= index ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400'}`}>
-                {step}
-              </span>
-            ))}
-          </div>
-        </div>
-        
-        {/* 页面检测提示 */}
-        {systemStatus.pageType === '推荐列表' ? (
-          <div className="flex items-center mb-4 p-3 bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300 rounded-lg">
-            <CheckCircle className="w-5 h-5 mr-2 flex-shrink-0" />
-            <p>已检测到「推荐牛人」页面，可以启动自动化</p>
-          </div>
-        ) : (
-          <div className="flex items-center mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300 rounded-lg">
-            <AlertTriangle className="w-5 h-5 mr-2 flex-shrink-0" />
-            <div className="flex-1">
-              <p>请前往Boss直聘「推荐牛人」页面以启用自动化功能</p>
-            </div>
-            <div className="flex space-x-2">
-              <button 
-                onClick={detectBrowser} 
-                disabled={detecting}
-                className={`px-3 py-1 text-xs rounded-md bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-300 ${detecting ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                {detecting ? '检测中...' : '重新检测'}
-              </button>
-              
-              <div className="relative inline-block">
-                <button 
-                  onClick={() => launchBrowser(false)} 
-                  disabled={launching}
-                  className={`px-3 py-1 text-xs rounded-md bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300 ${launching ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  {launching ? '启动中...' : '启动浏览器'}
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    launchBrowser(true);
-                  }}
-                  disabled={launching}
-                  className="absolute top-0 right-0 -mr-2 -mt-2 w-5 h-5 bg-blue-500 rounded-full text-white text-xs flex items-center justify-center hover:bg-blue-600"
-                  title="强制启动新浏览器"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        <motion.div 
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
+      {/* 价值摘要区（顶部横幅） */}
+      <div className="mb-4 sm:mb-6">
+        <DashboardCard 
+          title="我的助理报告" 
+          icon={<Brain className="h-5 w-5 text-indigo-500" />}
+          collapsible
+          variant="default"
+          className="bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-gray-800/70 dark:to-gray-700/70"
         >
-          
-          {/* 今日活动卡片 */}
-          <motion.div 
-            className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden"
-            variants={cardVariants}
-            whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)" }}
+          <SummarySection 
+            timeStats={timeStats}
+            resumeStats={resumeStats}
+            aiSuggestion={aiSuggestion}
+          />
+        </DashboardCard>
+      </div>
+      
+      {/* 主内容区 - 左右分栏布局 */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 mb-4 sm:mb-6">
+        {/* 左侧主要内容区 (8/12) */}
+        <div className="lg:col-span-8 space-y-4 sm:space-y-6">
+          {/* 任务中心区 */}
+          <DashboardCard 
+            title="职位自动化进展" 
+            icon={<KanbanSquare className="h-5 w-5 text-blue-500" />}
+            variant="gradient"
+            collapsible
           >
-            <div className="p-6">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">今日活动</h3>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-400">已扫描简历</span>
-                  <span className="font-medium">{systemStatus.processedCount}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-400">当前页面类型</span>
-                  <span className="font-medium">{systemStatus.pageType}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-400">已打招呼</span>
-                  <span className="font-medium">{systemStatus.greetedCount}</span>
-                </div>
+            {/* 流程指示器 */}
+            <div className="mb-4 sm:mb-6 bg-white dark:bg-slate-800 rounded-lg p-3 sm:p-4 border border-gray-100 dark:border-gray-700">
+              <div className="flex justify-between mb-2">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">使用流程</span>
+              </div>
+              <div className="flex items-center">
+                {steps.map((step, index) => (
+                  <React.Fragment key={index}>
+                    <div className={`flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full ${
+                      currentStep > index 
+                        ? 'bg-green-500 text-white' 
+                        : currentStep === index 
+                          ? 'bg-blue-500 text-white' 
+                          : 'bg-gray-200 text-gray-400'
+                    }`}>
+                      <span className="text-xs sm:text-sm">{index + 1}</span>
+                    </div>
+                    {index < steps.length - 1 && (
+                      <div className={`flex-1 h-1.5 mx-1 sm:mx-2 rounded-full ${
+                        currentStep > index ? 'bg-green-500' : 'bg-gray-200'
+                      }`}></div>
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
+              <div className="flex justify-between mt-2">
+                {steps.map((step, index) => (
+                  <span key={index} className={`text-xs ${currentStep >= index ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400'}`}>
+                    {step}
+                  </span>
+                ))}
               </div>
             </div>
-            <div className="bg-gray-50 dark:bg-slate-700/50 px-6 py-3">
-              <button 
-                onClick={() => handleNavClick('logs')} 
-                className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium flex items-center"
-              >
-                查看详细日志
-                <ArrowRight className="ml-1 h-4 w-4" />
-              </button>
-            </div>
-          </motion.div>
-          
-          {/* 准备状态卡片 */}
-          <motion.div 
-            className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden"
-            variants={cardVariants}
-            whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)" }}
-          >
-            <div className="p-6">
-              <div className="flex items-center mb-4">
-                <div className={`w-3 h-3 mr-2 rounded-full ${readyToStart ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white">{readyToStart ? '准备就绪' : '准备中'}</h3>
+
+            {/* 页面检测提示和准备状态卡片 */}
+            {systemStatus.pageType !== '推荐列表' ? (
+              <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row items-start sm:items-center p-3 sm:p-4 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                <AlertTriangle className="w-5 h-5 mr-2 flex-shrink-0 mt-1 sm:mt-0" />
+                <div className="flex-1 my-2 sm:my-0">
+                  <p>请前往Boss直聘「推荐牛人」页面以启用自动化功能</p>
+                </div>
+                <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full sm:w-auto mt-2 sm:mt-0 sm:ml-4">
+                  <button 
+                    onClick={detectBrowser} 
+                    disabled={detecting}
+                    className={`flex-1 sm:flex-none px-3 py-1 text-xs rounded-md bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-300 ${detecting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    {detecting ? '检测中...' : '重新检测'}
+                  </button>
+                  
+                  <div className="relative inline-block flex-1 sm:flex-none">
+                    <button 
+                      onClick={() => launchBrowser(false)} 
+                      disabled={launching}
+                      className={`w-full px-3 py-1 text-xs rounded-md bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300 ${launching ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      {launching ? '启动中...' : '启动浏览器'}
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        launchBrowser(true);
+                      }}
+                      disabled={launching}
+                      className="absolute top-0 right-0 -mr-2 -mt-2 w-5 h-5 bg-blue-500 rounded-full text-white text-xs flex items-center justify-center hover:bg-blue-600"
+                      title="强制启动新浏览器"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
               </div>
-              
-              <ul className="space-y-3">
-                <li className="flex items-start">
-                  <div className={`mt-0.5 w-5 h-5 mr-2 flex-shrink-0 ${pageDetected ? 'text-green-500' : 'text-gray-300'}`}>
-                    {pageDetected ? <CheckCircle className="w-full h-full" /> : <Circle className="w-full h-full" />}
-                  </div>
-                  <span className="text-gray-600 dark:text-gray-400">检测到推荐牛人页面</span>
-                </li>
-                <li className="flex items-start">
-                  <div className={`mt-0.5 w-5 h-5 mr-2 flex-shrink-0 ${hasRules ? 'text-green-500' : 'text-gray-300'}`}>
-                    {hasRules ? <CheckCircle className="w-full h-full" /> : <Circle className="w-full h-full" />}
-                  </div>
-                  <span className="text-gray-600 dark:text-gray-400">已配置筛选规则</span>
-                </li>
-              </ul>
-              
-              {!readyToStart && (
+            ) : !readyToStart && (
+              <div className="mb-4 sm:mb-6 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-5">
+                <div className="flex items-center mb-3">
+                  <div className={`w-3 h-3 mr-2 rounded-full ${readyToStart ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                  <h3 className="font-medium text-gray-900 dark:text-white">{readyToStart ? '准备就绪' : '准备中'}</h3>
+                </div>
+                
+                <ul className="space-y-2 mb-4">
+                  <li className="flex items-start">
+                    <div className={`mt-0.5 w-5 h-5 mr-2 flex-shrink-0 ${pageDetected ? 'text-green-500' : 'text-gray-300'}`}>
+                      {pageDetected ? <CheckCircle className="w-full h-full" /> : <Circle className="w-full h-full" />}
+                    </div>
+                    <span className="text-gray-600 dark:text-gray-400">检测到推荐牛人页面</span>
+                  </li>
+                  <li className="flex items-start">
+                    <div className={`mt-0.5 w-5 h-5 mr-2 flex-shrink-0 ${hasRules ? 'text-green-500' : 'text-gray-300'}`}>
+                      {hasRules ? <CheckCircle className="w-full h-full" /> : <Circle className="w-full h-full" />}
+                    </div>
+                    <span className="text-gray-600 dark:text-gray-400">已配置筛选规则</span>
+                  </li>
+                </ul>
+                
                 <button 
                   onClick={handleNextStep}
-                  className="mt-4 w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center justify-center"
+                  className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-medium flex items-center justify-center shadow-md hover:shadow-lg transition-all"
                 >
                   {!pageDetected ? (
                     <>
@@ -460,193 +495,238 @@ export default function Homepage() {
                     </>
                   )}
                 </button>
-              )}
-            </div>
-            <div className="bg-gray-50 dark:bg-slate-700/50 px-6 py-3">
-              <button 
-                onClick={() => handleNavClick('rules')} 
-                className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium flex items-center"
-              >
-                管理规则
-                <ArrowRight className="ml-1 h-4 w-4" />
-              </button>
-            </div>
-          </motion.div>
-          
-          {/* 规则状态卡片 */}
-          <motion.div 
-            className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden"
-            variants={cardVariants}
-            whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)" }}
-          >
-            <div className="p-6">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">规则状态</h3>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-400">有效规则</span>
-                  <span className="font-medium">0</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-400">自动模式</span>
-                  <span className="font-medium text-yellow-600 dark:text-yellow-400">已关闭</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-400">上次修改</span>
-                  <span className="font-medium">-</span>
-                </div>
+              </div>
+            )}
+
+            {/* 三个模块组成的任务中心内容 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              {/* 职位进度看板 */}
+              <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 h-full">
+                <PositionProgress 
+                  data={positionProgress}
+                  onViewAll={() => handleNavClick('candidates')}
+                />
+              </div>
+              
+              {/* 自动化执行状态 */}
+              <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 h-full">
+                <AutomationStatus 
+                  status={automationStatus}
+                  onStart={startAutomation}
+                  onStop={stopAutomation}
+                  loading={loading}
+                />
+              </div>
+              
+              {/* 快捷入口 */}
+              <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 h-full sm:col-span-2 lg:col-span-1">
+                <QuickAccessGrid 
+                  title="快捷入口"
+                  onNavigate={handleNavClick}
+                />
               </div>
             </div>
-            <div className="bg-gray-50 dark:bg-slate-700/50 px-6 py-3">
-              <button 
-                onClick={() => handleNavClick('rules')} 
-                className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium flex items-center"
-              >
-                管理规则
-                <ArrowRight className="ml-1 h-4 w-4" />
-              </button>
+          </DashboardCard>
             </div>
-          </motion.div>
-        </motion.div>
-      </section>
-      
-      {/* 自动化控制面板 */}
-      <section>
-        <h2 className="text-2xl font-bold mb-4">自动化控制</h2>
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <button
-              onClick={startAutomation}
-              disabled={!pageDetected || systemStatus.running || loading}
-              className={`flex items-center justify-center px-4 py-2 rounded-lg text-white font-medium ${
-                !pageDetected || systemStatus.running || loading 
-                  ? 'bg-gray-400 cursor-not-allowed' 
-                  : 'bg-green-600 hover:bg-green-700'
-              }`}
-            >
-              <Play className="w-5 h-5 mr-2" />
-              启动自动化
-            </button>
-            
-            <button
-              onClick={stopAutomation}
-              disabled={!systemStatus.running || loading}
-              className={`flex items-center justify-center px-4 py-2 rounded-lg text-white font-medium ${
-                !systemStatus.running || loading 
-                  ? 'bg-gray-400 cursor-not-allowed' 
-                  : 'bg-red-600 hover:bg-red-700'
-              }`}
-            >
-              <StopCircle className="w-5 h-5 mr-2" />
-              停止自动化
-            </button>
-            
-            <button
-              onClick={() => handleNavClick('rules')}
-              className="flex items-center justify-center px-4 py-2 rounded-lg text-gray-700 dark:text-gray-200 font-medium bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
-            >
-              <Settings className="w-5 h-5 mr-2" />
-              配置规则
-            </button>
+        
+        {/* 右侧辅助区 (4/12) */}
+        <div className="lg:col-span-4 space-y-4 sm:space-y-6">
+          {/* 激励与数据区（使用垂直标签页） */}
+          <VerticalTabsCard 
+            title="我的成长与战绩" 
+            icon={<TrendingUp className="h-5 w-5 text-purple-500" />}
+            variant="default"
+            collapsible
+            tabs={[
+              {
+                id: "ranking",
+                label: "行业排名",
+                shortLabel: "排名",
+                icon: <Crown className="h-4 w-4 text-amber-500" />,
+                content: (
+                  <div className="py-3">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-1 text-center">{rankingData.industry} 行业</p>
+                    <div className="flex items-end justify-center">
+                      <span className="text-4xl font-bold text-indigo-600 dark:text-indigo-400">
+                        #{rankingData.ranking}
+                      </span>
+                      <span className="text-sm text-gray-500 dark:text-gray-400 ml-2 mb-1.5">
+                        / {rankingData.totalCompanies}
+                      </span>
+            </div>
+                    
+                    <div className="flex items-center justify-center mt-2">
+                      {rankingData.change > 0 ? (
+                        <>
+                          <ChevronUp className="h-4 w-4 text-green-500" />
+                          <span className="text-sm text-green-500">上升 {rankingData.change} 位</span>
+                        </>
+                      ) : rankingData.change < 0 ? (
+                        <>
+                          <ChevronDown className="h-4 w-4 text-red-500" />
+                          <span className="text-sm text-red-500">下降 {Math.abs(rankingData.change)} 位</span>
+                        </>
+                      ) : (
+                        <span className="text-sm text-gray-500 dark:text-gray-400">位置不变</span>
+                      )}
+                </div>
+                </div>
+                )
+              },
+              {
+                id: "trends",
+                label: "效率趋势",
+                shortLabel: "效率",
+                icon: <TrendingUp className="h-4 w-4 text-blue-500" />,
+                content: (
+                  <div className="space-y-3">
+                    {trendItems.map((item, index) => (
+                      <div key={index} className="flex items-center justify-between">
+                        <span className="text-sm text-gray-700 dark:text-gray-300">{item.name}</span>
+                        <div className="flex items-center">
+                          <span className="font-medium mr-2">{item.value}</span>
+                          {item.change > 0 ? (
+                            <span className="text-xs px-1.5 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded">
+                              +{item.change}%
+                            </span>
+                          ) : item.change < 0 ? (
+                            <span className="text-xs px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded">
+                              {item.change}%
+                            </span>
+                          ) : (
+                            <span className="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 rounded">
+                              0%
+                            </span>
+                          )}
+                </div>
+              </div>
+                    ))}
+            </div>
+                )
+              },
+              {
+                id: "achievements",
+                label: "成就徽章",
+                shortLabel: "成就",
+                icon: <Award className="h-4 w-4 text-purple-500" />,
+                content: (
+                  <div>
+                    <div className="flex justify-end mb-3">
+                      <span className="text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 px-2 py-0.5 rounded-full">
+                        已解锁 {achievements.filter(b => b.unlocked).length}/{achievements.length}
+                      </span>
+            </div>
+                    
+                    <div className="grid grid-cols-3 gap-2">
+                      {achievements.slice(0, 6).map((badge) => (
+                        <div 
+                          key={badge.id}
+                          className={`relative p-2 rounded-lg flex flex-col items-center justify-center ${
+                            badge.unlocked
+                              ? 'bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20'
+                              : 'bg-gray-100 dark:bg-gray-700'
+                          }`}
+                          title={badge.name + (badge.unlocked ? '' : ` - ${badge.description}`)}
+                        >
+                          <div className={`text-lg mb-1 ${badge.unlocked ? 'text-amber-500' : 'text-gray-400'}`}>
+                            {badge.icon}
+                          </div>
+                          <span className={`text-xs truncate w-full text-center ${
+                            badge.unlocked ? 'text-amber-800 dark:text-amber-300' : 'text-gray-500 dark:text-gray-400'
+                          }`}>
+                            {badge.name}
+                          </span>
+                          
+                          {!badge.unlocked && badge.progress && (
+                            <div className="w-full mt-1 bg-gray-200 dark:bg-gray-600 rounded-full h-1">
+                              <div 
+                                className="bg-amber-400 h-1 rounded-full" 
+                                style={{ width: `${(badge.progress.current / badge.progress.total) * 100}%` }}
+                              ></div>
           </div>
+                          )}
         </div>
-      </section>
-      
-      <section>
-        <h2 className="text-2xl font-bold mb-4">快速导航</h2>
-        <motion.div 
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-        >
-          {/* 快速导航卡片 */}
-          <motion.div
-            variants={cardVariants}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-          >
-            <button 
-              onClick={() => handleNavClick('candidates')} 
-              className="w-full flex items-center p-4 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:bg-gray-50 dark:hover:bg-slate-700"
-            >
-              <div className="rounded-full p-2 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 mr-3">
-                <Users className="h-5 w-5" />
+                      ))}
               </div>
-              <div>
-                <h3 className="font-medium">候选人管理</h3>
               </div>
-            </button>
-          </motion.div>
+                )
+              }
+            ]}
+          />
           
-          <motion.div
-            variants={cardVariants}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-          >
+          {/* 辅助支持区（使用垂直标签页） */}
+          <VerticalTabsCard 
+            title="智能助手与支持" 
+            icon={<HelpCircle className="h-5 w-5 text-green-500" />}
+            variant="default"
+            collapsible
+            tabs={[
+              {
+                id: "contact",
+                label: "联系客服",
+                shortLabel: "客服",
+                icon: <MessageCircle className="h-4 w-4 text-indigo-500" />,
+                content: (
+                  <div className="p-4 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/30 dark:to-blue-900/30 rounded-lg">
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+                      遇到问题或需要帮助？我们的客服团队随时为您提供支持。
+                    </p>
+                    
             <button 
-              onClick={() => handleNavClick('rules')} 
-              className="w-full flex items-center p-4 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:bg-gray-50 dark:hover:bg-slate-700"
-            >
-              <div className="rounded-full p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 mr-3">
-                <FilePlus className="h-5 w-5" />
-              </div>
-              <div>
-                <h3 className="font-medium">规则设置</h3>
-              </div>
+                      onClick={handleContactSupport}
+                      className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium flex items-center justify-center"
+                    >
+                      <MessageCircle className="h-4 w-4 mr-2" />
+                      联系客服
             </button>
-          </motion.div>
-          
-          <motion.div
-            variants={cardVariants}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-          >
-            <button 
-              onClick={() => handleNavClick('logs')} 
-              className="w-full flex items-center p-4 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:bg-gray-50 dark:hover:bg-slate-700"
-            >
-              <div className="rounded-full p-2 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 mr-3">
-                <Calendar className="h-5 w-5" />
+                    
+                    <div className="mt-4 text-xs text-gray-500 dark:text-gray-400 flex justify-between">
+                      <span>客服工作时间: 09:00-18:00</span>
+                      <span>平均响应时间: &lt; 10分钟</span>
+                    </div>
               </div>
+                )
+              },
+              {
+                id: "tips",
+                label: "使用技巧",
+                shortLabel: "技巧",
+                icon: <LightbulbIcon className="h-4 w-4 text-amber-500" />,
+                content: (
               <div>
-                <h3 className="font-medium">操作日志</h3>
+                    {tips.map((tip, index) => (
+                      <div key={index} className="mb-4 last:mb-0 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
+                        <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-2">{tip.title}</h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">{tip.content}</p>
               </div>
-            </button>
-          </motion.div>
-          
-          <motion.div
-            variants={cardVariants}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-          >
-            <button 
-              onClick={() => handleNavClick('ai-chat')} 
-              className="w-full flex items-center p-4 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:bg-gray-50 dark:hover:bg-slate-700"
-            >
-              <div className="rounded-full p-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 mr-3">
-                <Bot className="h-5 w-5" />
+                    ))}
               </div>
-              <div>
-                <h3 className="font-medium">AI 对话</h3>
+                )
+              },
+              {
+                id: "faq",
+                label: "常见问题",
+                shortLabel: "问题",
+                icon: <HelpCircle className="h-4 w-4 text-green-500" />,
+                content: (
+                  <div className="space-y-3">
+                    {faqs.map((faq) => (
+                      <details key={faq.id} className="text-sm">
+                        <summary className="font-medium text-gray-700 dark:text-gray-200 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400">
+                          {faq.question}
+                        </summary>
+                        <p className="mt-2 pl-4 text-gray-600 dark:text-gray-300 text-xs">
+                          {faq.answer}
+                        </p>
+                      </details>
+                    ))}
               </div>
-            </button>
-          </motion.div>
-        </motion.div>
-      </section>
-      
-      <section>
-        <h2 className="text-2xl font-bold mb-4">使用指南</h2>
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <ol className="list-decimal pl-5 space-y-3 text-gray-700 dark:text-gray-300">
-            <li><strong>进入Boss直聘「推荐牛人」页面</strong><br/>
-               打开Boss直聘网站并确保已登录到「推荐牛人」页面</li>
-            <li><strong>设置筛选规则</strong><br/>
-               点击「规则设置」创建您的候选人筛选条件，或使用「AI对话」智能生成规则</li>
-            <li><strong>启动自动化</strong><br/>
-               返回首页点击「启动自动化」按钮，系统将根据您的规则自动评估候选人</li>
-          </ol>
+                )
+              }
+            ]}
+          />
         </div>
-      </section>
+      </div>
     </div>
   );
 }

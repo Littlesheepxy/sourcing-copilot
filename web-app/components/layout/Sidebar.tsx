@@ -12,7 +12,9 @@ import {
   ClipboardList, 
   Settings, 
   ChevronLeft, 
-  ChevronRight 
+  ChevronRight,
+  Bot,
+  Clock
 } from 'lucide-react';
 
 // 侧边栏导航项
@@ -34,6 +36,20 @@ const navItems = [
     module: 'ai-chat', 
     path: '/ai-chat',
     icon: <MessageSquare className="w-5 h-5" />
+  },
+  { 
+    name: 'AI 助手沟通记录', 
+    module: 'ai-assistant-chat', 
+    path: '/ai-assistant-chat',
+    icon: <Bot className="w-5 h-5" />,
+    beta: true
+  },
+  { 
+    name: '已读未回自动回访', 
+    module: 'auto-followup', 
+    path: '/auto-followup',
+    icon: <Clock className="w-5 h-5" />,
+    beta: true
   },
   { 
     name: '候选人管理', 
@@ -128,9 +144,12 @@ export default function Sidebar() {
                   <motion.span 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="ml-3"
+                    className="ml-3 flex items-center"
                   >
                     {item.name}
+                    {item.beta && (
+                      <span className="ml-2 px-1.5 py-0.5 text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 rounded">研发中</span>
+                    )}
                   </motion.span>
                 )}
               </button>
