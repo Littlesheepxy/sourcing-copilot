@@ -5,6 +5,11 @@
 
 from thefuzz import fuzz
 import re
+import json
+import httpx
+import asyncio
+import os
+import openai
 
 class EvaluationHelper:
     """评估帮助类，提供简历评估方法"""
@@ -259,9 +264,307 @@ class EvaluationHelper:
         return cleaned_position
         
     @staticmethod
+    async def evaluate_keywords_ai(resume_data, config):
+        """
+        使用大模型评估简历与岗位要求的匹配度
+        
+        Args:
+            resume_data: 简历数据
+            config: 规则配置
+            
+        Returns:
+            dict: 大模型评估结果
+        """
+        # 初始化结果
+        result = {
+            "score": 0,
+            "passed": False,
+            "rejectReason": ""
+        }
+        
+        # 检查是否启用了AI智能筛选
+        ai_enabled = config.get("aiEnabled", False)
+        job_description = config.get("jobDescription", "")
+        talent_profile = config.get("talentProfile", "")
+        
+        # 如果没有启用AI智能筛选，则回退到传统关键词筛选
+        if not ai_enabled and not job_description and not talent_profile:
+            print("🔄 未启用AI智能筛选，使用传统关键词评估方法")
+            # 获取所有启用的关键词规则
+            active_rules = [r for r in config.get("rules", []) if r.get("enabled") and r.get("type") == "岗位核心关键词"]
+            if not active_rules:
+                # 没有关键词规则，默认通过
+                print("📋 没有配置关键词规则，默认通过评估")
+                result["passed"] = True
+                result["score"] = 100
+                return result
+                
+            # 获取通过分数（使用第一个关键词规则的通过分数）
+            pass_score = active_rules[0].get("passScore", 60)
+            keywords = active_rules[0].get("keywords", [])
+            
+            print(f"🎯 传统关键词评估配置: 通过分数={pass_score}, 关键词={keywords}")
+                
+            if not keywords:
+                # 没有关键词，默认通过
+                print("📋 没有配置具体关键词，默认通过评估")
+                result["passed"] = True
+                result["score"] = 100
+                return result
+        else:
+            print("🤖 使用AI智能筛选进行评估")
+            # 获取通过分数
+            pass_score = config.get("passScore", 70)
+            
+            # 如果没有配置JD和人才画像，使用关键词规则作为备用
+            if not job_description and not talent_profile:
+                active_rules = [r for r in config.get("rules", []) if r.get("enabled") and r.get("type") == "岗位核心关键词"]
+                if active_rules:
+                    keywords = active_rules[0].get("keywords", [])
+                    if keywords:
+                        job_description = f"岗位要求包含以下关键技能：{', '.join(keywords)}"
+                        talent_profile = "理想候选人应具备相关技能和工作经验"
+                        print(f"🔄 从关键词规则生成JD和人才画像: {job_description}")
+                
+                if not job_description and not talent_profile:
+                    print("⚠️ 没有配置JD、人才画像或关键词，默认通过")
+                    result["passed"] = True
+                    result["score"] = 80
+                    return result
+            
+        # 从简历数据中收集文本内容
+        resume_content = ""
+        
+        # 添加职位信息
+        if resume_data.get("position"):
+            resume_content += f"期望职位: {resume_data.get('position')}\n\n"
+            print(f"📝 期望职位: {resume_data.get('position')}")
+            
+        # 添加公司经历
+        if resume_data.get("company"):
+            companies = resume_data.get("company")
+            if isinstance(companies, list):
+                resume_content += "工作经历:\n"
+                for company in companies:
+                    resume_content += f"- {company}\n"
+                resume_content += "\n"
+                print(f"🏢 工作经历: {companies}")
+            else:
+                resume_content += f"工作经历: {companies}\n\n"
+                print(f"🏢 工作经历: {companies}")
+        
+        # 添加教育经历
+        if resume_data.get("schools"):
+            schools = resume_data.get("schools")
+            if isinstance(schools, list):
+                resume_content += "教育经历:\n"
+                for school in schools:
+                    resume_content += f"- {school}\n"
+                resume_content += "\n"
+                print(f"🎓 教育经历: {schools}")
+            else:
+                resume_content += f"教育经历: {schools}\n\n"
+                print(f"🎓 教育经历: {schools}")
+        
+        # 添加技能标签
+        if resume_data.get("skills"):
+            skills = resume_data.get("skills")
+            if isinstance(skills, list):
+                resume_content += "技能标签: " + ", ".join(skills) + "\n\n"
+                print(f"🛠️ 技能标签: {skills}")
+            else:
+                resume_content += f"技能标签: {skills}\n\n"
+                print(f"🛠️ 技能标签: {skills}")
+                
+        # 添加HTML内容（如果有）
+        if resume_data.get("html_content"):
+            resume_content += "简历HTML内容略（已提取到结构化数据）\n\n"
+            print("📄 包含HTML格式简历内容")
+            
+        # 添加完整文本（优先使用）
+        if resume_data.get("fullText"):
+            resume_content += f"简历全文内容:\n{resume_data.get('fullText')}\n\n"
+            text_length = len(resume_data.get('fullText'))
+            print(f"📄 简历全文长度: {text_length} 字符")
+            
+        # 如果没有任何内容，使用原始数据
+        if not resume_content.strip():
+            resume_content = str(resume_data)
+            print("⚠️ 使用原始简历数据进行评估")
+            
+        print(f"📊 准备发送给AI评估的内容长度: {len(resume_content)} 字符")
+        
+        # 构建智能提示词
+        if ai_enabled and job_description and talent_profile:
+            # 使用完整的JD和人才画像构建提示词
+            prompt = f"""你是一位资深的人力资源专家，负责为企业筛选最合适的候选人。请根据以下职位要求和理想人才画像，评估候选人简历的匹配度。
+
+【职位描述】
+{job_description}
+
+【理想人才画像】
+{talent_profile}
+
+【候选人简历】
+{resume_content}
+
+【评估要求】
+1. 综合考虑技能匹配、经验相关性、学习潜力、文化匹配等多个维度
+2. 评估标准：70分为通过门槛（满分100分）
+3. 重点关注候选人与岗位核心要求的匹配程度
+4. 考虑候选人的成长潜力和适应性
+
+请以JSON格式输出评估结果：
+{{
+  "result": "通过" 或 "不通过",
+  "score": 0-100之间的整数分数,
+  "reason": "详细评估理由，包含匹配的优势和不足，不超过150字",
+  "highlights": ["候选人的3-5个突出优势或关键匹配点"],
+  "concerns": ["需要关注的2-3个不足或风险点"]
+}}"""
+        else:
+            # 回退到基于关键词的评估
+            active_rules = [r for r in config.get("rules", []) if r.get("enabled") and r.get("type") == "岗位核心关键词"]
+            keywords = []
+            if active_rules:
+                keywords = active_rules[0].get("keywords", [])
+            
+            prompt = f"""你是一位专业的人力资源专家，需要评估一份简历是否符合岗位要求。
+
+岗位关键要求:
+{', '.join(keywords) if keywords else '请基于简历内容和常见岗位要求进行综合评估'}
+
+简历内容:
+{resume_content}
+
+请分析这份简历是否符合岗位要求，评估通过标准为{pass_score}分（满分100分）。
+请以JSON格式输出，格式为:
+{{
+  "result": "通过" 或 "不通过",
+  "score": 0-100之间的分数,
+  "reason": "通过或不通过的原因，不超过100字"
+}}"""
+
+        try:
+            # 配置OpenAI客户端
+            api_key = os.environ.get("OPENAI_API_KEY", "sk-hra-zp-2025052091")
+            
+            # 直接使用公网域名，避免内部域名解析问题
+            base_url = "https://chat.inhyperloop.com/v1"
+            
+            print(f"🤖 正在调用AI评估API: {base_url}")
+            print(f"📝 使用{'AI智能筛选' if ai_enabled else '关键词'}评估模式")
+            
+            # 初始化OpenAI客户端
+            client = openai.OpenAI(api_key=api_key, base_url=base_url)
+            
+            # 发送请求
+            try:
+                print("⏳ 开始调用OpenAI API进行评估...")
+                response = await asyncio.to_thread(
+                    client.chat.completions.create,
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": "你是一位专业的招聘评估助手，擅长分析简历与岗位匹配度。"},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.3,
+                    timeout=30  # 设置30秒超时
+                )
+                print("✅ OpenAI API调用成功")
+                
+                # 解析响应
+                ai_response = response.choices[0].message.content
+                print(f"🤖 AI原始响应: {ai_response}")
+                
+                try:
+                    # 尝试解析JSON响应
+                    # 处理可能包含```json代码块的响应
+                    cleaned_response = ai_response.strip()
+                    if cleaned_response.startswith('```json'):
+                        # 移除代码块标记
+                        cleaned_response = cleaned_response[7:]  # 移除```json
+                        if cleaned_response.endswith('```'):
+                            cleaned_response = cleaned_response[:-3]  # 移除```
+                    elif cleaned_response.startswith('```'):
+                        # 处理```开头的情况
+                        lines = cleaned_response.split('\n')
+                        if len(lines) > 1:
+                            cleaned_response = '\n'.join(lines[1:])  # 移除第一行
+                        if cleaned_response.endswith('```'):
+                            cleaned_response = cleaned_response[:-3]  # 移除```
+                    
+                    # 清理可能的多余空白字符和换行符
+                    cleaned_response = cleaned_response.strip()
+                    
+                    print(f"🧹 清理后的AI响应: {cleaned_response}")
+                    
+                    ai_result = json.loads(cleaned_response)
+                    print(f"📊 AI评估结果解析成功: {ai_result}")
+                    
+                    # 将AI结果转换为我们的结果格式
+                    if "result" in ai_result:
+                        result["passed"] = ai_result["result"] == "通过"
+                        print(f"🎯 评估结果: {'通过' if result['passed'] else '不通过'}")
+                        
+                    if "score" in ai_result:
+                        result["score"] = int(ai_result["score"])
+                        print(f"📊 评估分数: {result['score']}/{pass_score}")
+                        
+                    if "reason" in ai_result:
+                        if not result["passed"]:
+                            result["rejectReason"] = ai_result["reason"]
+                        print(f"📝 评估原因: {ai_result['reason']}")
+                        
+                    # 记录详细评估信息（如果有）
+                    if "highlights" in ai_result:
+                        print(f"✨ 候选人优势: {ai_result['highlights']}")
+                    if "concerns" in ai_result:
+                        print(f"⚠️ 关注点: {ai_result['concerns']}")
+                        
+                    print(f"✅ AI评估完成: 结果={'通过' if result['passed'] else '不通过'}, 分数={result['score']}, 原因={ai_result.get('reason', '')}")
+                    return result
+                    
+                except json.JSONDecodeError:
+                    print(f"❌ 无法解析AI响应为JSON: {ai_response}")
+                    # 自动通过，不回退到关键词匹配
+                    result["passed"] = True
+                    result["score"] = 70
+                    result["rejectReason"] = "AI响应格式错误，自动通过"
+                    print("🔄 由于解析错误，自动设置为通过")
+                    return result
+                
+            except Exception as api_error:
+                print(f"❌ OpenAI API调用失败: {api_error}")
+                import traceback
+                traceback.print_exc()
+                
+                # 尝试检查是否是网络连接问题
+                if "connect" in str(api_error).lower() or "timeout" in str(api_error).lower() or "connection" in str(api_error).lower():
+                    print("🌐 检测到网络连接问题，可能需要检查网络设置或代理")
+                    
+                # 自动通过，设置较低分数但仍然通过
+                result["passed"] = True
+                result["score"] = 65
+                result["rejectReason"] = "API调用失败，自动通过"
+                print("🔄 由于API调用失败，自动设置为通过")
+                return result
+                
+        except Exception as e:
+            print(f"❌ AI评估出错: {e}")
+            import traceback
+            traceback.print_exc()
+            # 自动通过，不回退到关键词匹配
+            result["passed"] = True
+            result["score"] = 70
+            result["rejectReason"] = "评估过程出错，自动通过"
+            print("🔄 由于评估过程出错，自动设置为通过")
+            return result
+
+    @staticmethod
     def evaluate_keywords(resume_data, config):
         """
-        仅评估关键词得分
+        仅评估关键词得分 (保留原方法作为备用)
         
         Args:
             resume_data: 简历数据
@@ -270,6 +573,8 @@ class EvaluationHelper:
         Returns:
             dict: 关键词评估结果
         """
+        # 【注意: 以下是原始关键词匹配逻辑，已作为备用方法保留】
+        
         # 初始化结果
         result = {
             "score": 0,
@@ -388,7 +693,7 @@ class EvaluationHelper:
         return result
 
     @staticmethod
-    def evaluate_resume(resume_data, config):
+    async def evaluate_resume(resume_data, config):
         """
         评估简历是否符合筛选规则
         
@@ -417,8 +722,8 @@ class EvaluationHelper:
             # 添加一个标记，如果该简历来自详情页，已经通过了卡片阶段筛选，则不再进行岗位匹配
             position_match = True
             
-            # 检查是否是从iframe的OCR提取，或者使用卡片数据
-            is_from_card = resume_data.get('is_using_card_data_only') or resume_data.get('is_canvas_resume') or resume_data.get('is_image_resume')
+            # 检查是否是从卡片数据提取，或者是HTML格式的简历
+            is_from_card = resume_data.get('is_using_card_data_only') or resume_data.get('is_boss_html_resume')
             
             # 只有在非卡片数据的情况下才再次检查职位匹配
             if not is_from_card and position_rules:
@@ -501,163 +806,25 @@ class EvaluationHelper:
                                 print(f"从竞对公司 '{company}' 来的候选人，匹配关键词 '{keyword}'")
                                 return True, ""
             
-            # 3. 图片简历特殊处理
-            if resume_data.get('is_image_resume'):
-                # 图片简历如果已通过前面筛选，考虑放宽要求
+            # 3. HTML格式简历特殊处理
+            if resume_data.get('is_boss_html_resume'):
+                # HTML格式简历如果已通过前面筛选，考虑放宽要求
                 if resume_data.get('position'):  # 有期望职位信息且已通过岗位筛选
-                    print("图片简历已通过岗位筛选，考虑放宽要求")
+                    print("HTML格式简历已通过岗位筛选，考虑放宽要求")
                     return True, ""
             
             # 4. 关键词评分 - 详情页主要评估逻辑
             if keyword_rules:
-                rule = keyword_rules[0]  # 只取第一个关键词规则
-                keywords = rule.get('keywords', [])
-                pass_score = rule.get('passScore', 60)
+                print("使用大模型评估简历与岗位匹配度...")
+                # 调用大模型评估方法
+                ai_result = await EvaluationHelper.evaluate_keywords_ai(resume_data, config)
                 
-                if not keywords:
-                    # 没有关键词要求，直接通过
-                    return True, ""
-                
-                # 计算关键词得分
-                matched_keywords = []
-                total_score = 0
-                max_score = len(keywords) * 10  # 每个关键词10分
-                
-                # 收集所有可能的文本数据进行全文搜索
-                all_text_fields = []
-                
-                # 首先添加fullText，这是最完整的文本
-                if resume_data.get('fullText'):
-                    all_text_fields.append(resume_data.get('fullText'))
-                    print("使用完整简历文本进行评估")
-                
-                # 合并其他文本字段
-                text_fields = []
-                
-                # 安全地添加字段，确保处理None值
-                def safe_add(field):
-                    if field is None:
-                        return ''
-                    if isinstance(field, list):
-                        return ' '.join([str(item) for item in field if item is not None])
-                    return str(field)
-
-                text_fields = [
-                    safe_add(resume_data.get('position')),
-                    safe_add(resume_data.get('company')),
-                    safe_add(resume_data.get('school')),
-                    safe_add(resume_data.get('skills')),
-                    safe_add(resume_data.get('workExperience')),
-                    safe_add(resume_data.get('projectExperience')),
-                    safe_add(resume_data.get('education')),
-                    safe_add(resume_data.get('selfEvaluation'))
-                ]
-                
-                # 过滤掉空字段，并添加到all_text_fields
-                for field in text_fields:
-                    if field and len(field) > 0:
-                        all_text_fields.append(field)
-                
-                if not all_text_fields:
-                    print("没有足够的文本数据进行关键词评分")
-                    # 如果是特殊简历格式且关键数据完整，可以考虑直接通过
-                    if resume_data.get('is_canvas_resume') or resume_data.get('is_image_resume'):
-                        print("特殊格式简历(canvas/图片)且基本信息完整，考虑放行")
-                        
-                        # 检查名字是否有效且是否为奇怪值如"在线"
-                        name = resume_data.get('name', '')
-                        if name and name != "在线" and len(name) >= 2:
-                            if resume_data.get('position') or (resume_data.get('company') and len(resume_data.get('company', [])) > 0):
-                                print(f"特殊简历基本信息足够，姓名:{name}")
-                                return True, ""
-                        else:
-                            print(f"特殊简历姓名字段异常: {name}")
-                    return False, "没有足够文本内容进行关键词评分"
-                
-                # 合并所有文本并转为小写
-                resume_text = ' '.join(all_text_fields).lower()
-                
-                # 扩展评分逻辑：模糊匹配、部分匹配、分词匹配
-                for keyword in keywords:
-                    keyword_lower = keyword.lower()
-                    matched = False
-                    
-                    # 1. 精确匹配
-                    if keyword_lower in resume_text:
-                        matched = True
-                        matched_keywords.append(keyword)
-                        total_score += 10
-                        print(f"精确匹配关键词: {keyword}")
-                        continue
-                    
-                    # 2. 分词匹配 (对多词组关键词)
-                    if ' ' in keyword_lower:
-                        parts = keyword_lower.split()
-                        if len(parts) > 1:
-                            parts_matched = True
-                            for part in parts:
-                                if len(part) > 2 and part not in resume_text:  # 跳过太短的词
-                                    parts_matched = False
-                                    break
-                            
-                            if parts_matched:
-                                matched = True
-                                matched_keywords.append(f"{keyword}(分词匹配)")
-                                total_score += 8  # 分词匹配得分稍低
-                                print(f"分词匹配关键词: {keyword}")
-                                continue
-                    
-                    # 3. 模糊匹配
-                    try:
-                        # 对长文本使用部分匹配
-                        if len(resume_text) > 1000:
-                            highest_ratio = 0
-                            # 分块处理长文本
-                            chunk_size = 200
-                            for i in range(0, len(resume_text), chunk_size):
-                                chunk = resume_text[i:i+chunk_size]
-                                ratio = fuzz.partial_ratio(keyword_lower, chunk)
-                                highest_ratio = max(highest_ratio, ratio)
-                                
-                                if highest_ratio >= 90:  # 找到高匹配度就停止
-                                    break
-                            
-                            # 高度匹配
-                            if highest_ratio >= 90:
-                                matched = True
-                                matched_keywords.append(f"{keyword}(模糊匹配{highest_ratio}%)")
-                                total_score += 7  # 模糊匹配得分更低
-                                print(f"模糊匹配关键词: {keyword}, 匹配度: {highest_ratio}%")
-                        else:
-                            # 短文本直接计算
-                            ratio = fuzz.partial_ratio(keyword_lower, resume_text)
-                            if ratio >= 90:
-                                matched = True
-                                matched_keywords.append(f"{keyword}(模糊匹配{ratio}%)")
-                                total_score += 7
-                                print(f"模糊匹配关键词: {keyword}, 匹配度: {ratio}%")
-                    except Exception as e:
-                        print(f"模糊匹配出错: {e}")
-                
-                # 计算得分百分比
-                if max_score > 0:
-                    score_percent = (total_score / max_score) * 100
-                else:
-                    score_percent = 0
-                
-                # 输出详细评分信息
-                print(f"关键词评分: {score_percent:.1f}% ({total_score}/{max_score}), 匹配关键词: {matched_keywords}")
-                print(f"评分阈值: {pass_score}%")
-                
-                if score_percent >= pass_score:
+                if ai_result["passed"]:
+                    print(f"大模型评估通过！得分: {ai_result['score']}")
                     return True, ""
                 else:
-                    # 增加详细的评分信息，包括匹配到的关键词
-                    matched_keywords_str = ", ".join([str(k) for k in matched_keywords]) if matched_keywords else "无"
-                    detailed_reason = f"关键词评分不足: {score_percent:.1f}% < {pass_score}%，共匹配{len(matched_keywords)}/{len(keywords)}个关键词"
-                    if matched_keywords:
-                        detailed_reason += f"，匹配关键词: {matched_keywords_str}"
-                    return False, detailed_reason
+                    print(f"大模型评估不通过: {ai_result['rejectReason']}")
+                    return False, ai_result["rejectReason"]
             
             # 默认通过
             return True, ""

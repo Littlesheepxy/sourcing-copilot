@@ -286,9 +286,28 @@ export class LogService {
       const apiService = getApiService();
       const response = await apiService.getLogs();
       
-      if (response.success && Array.isArray(response.data)) {
+      if (response.success) {
+        // 尝试处理不同格式的API响应
+        let logData: OperationLog[] = [];
+        
+        if (Array.isArray(response.data)) {
+          logData = response.data;
+        } else if (response.data && typeof response.data === 'object') {
+          // 使用类型断言避免TypeScript错误
+          const responseObj = response.data as Record<string, any>;
+          if ('data' in responseObj && Array.isArray(responseObj.data)) {
+            logData = responseObj.data;
+          } else {
+            console.log('日志数据为空或格式不支持', response);
+            return;
+          }
+        } else {
+          console.log('日志数据为空或格式不支持', response);
+          return;
+        }
+        
         // 转换API日志格式为本地日志格式
-        const apiLogs = response.data.map((log: OperationLog): LogEntry => ({
+        const apiLogs = logData.map((log: OperationLog): LogEntry => ({
           id: log.id,
           timestamp: log.timestamp,
           action: log.action,

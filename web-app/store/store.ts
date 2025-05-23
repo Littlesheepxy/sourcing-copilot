@@ -12,7 +12,7 @@ interface AIChat {
 }
 
 // 定义可用的模块类型
-export type ModuleType = 'home' | 'candidates' | 'rules' | 'simple-rules' | 'logs' | 'settings' | 'ai-chat';
+export type ModuleType = 'home' | 'candidates' | 'rules' | 'simple-rules' | 'ai-rules' | 'logs' | 'settings' | 'ai-chat';
 
 interface Store {
   // UI状态

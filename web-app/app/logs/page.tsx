@@ -12,14 +12,13 @@ export default function LogsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 操作类型列表（用于筛选）
-  const actionTypes = [
+  // 日志类型选项
+  const logTypes = [
     { value: 'all', label: '全部' },
     { value: '候选人分析', label: '候选人分析' },
     { value: '查看候选人', label: '查看候选人' },
-    { value: '更新候选人状态', label: '状态更新' },
+    { value: '更新候选人状态', label: '更新状态' },
     { value: '自动打招呼', label: '自动打招呼' },
-    { value: 'AI分析', label: 'AI分析' }
   ];
 
   // 加载日志
@@ -198,219 +197,191 @@ export default function LogsPage() {
   };
 
   return (
-    <>
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold mb-6">操作日志</h1>
-          <div className="flex space-x-2">
-            <button 
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
-              onClick={handleExportLogs}
-              disabled={isLoading || logs.length === 0}
-            >
-              {isLoading ? '处理中...' : '导出日志'}
-            </button>
-            <button 
-              className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg transition-colors disabled:opacity-50"
-              onClick={handleClearLogs}
-              disabled={isLoading || logs.length === 0}
-            >
-              {isLoading ? '处理中...' : '清除日志'}
-            </button>
-          </div>
+    <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+      <h1 className="text-2xl font-bold mb-6">操作日志</h1>
+      
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded mb-4">
+          {error}
         </div>
-        
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative dark:bg-red-900/50 dark:border-red-700 dark:text-red-300" role="alert">
-            <span className="block sm:inline">{error}</span>
-            <button 
-              className="absolute top-0 bottom-0 right-0 px-4 py-3"
-              onClick={() => setError(null)}
-            >
-              <span className="sr-only">关闭</span>
-              <svg className="fill-current h-5 w-5" role="button" viewBox="0 0 20 20">
-                <path d="M14.348 14.849a1 1 0 01-1.414 0L10 11.414l-2.93 2.93a1 1 0 01-1.414-1.414l2.93-2.93-2.93-2.93a1 1 0 011.414-1.414l2.93 2.93 2.93-2.93a1 1 0 011.414 1.414l-2.93 2.93 2.93 2.93a1 1 0 010 1.414z"></path>
-              </svg>
-            </button>
-          </div>
-        )}
-        
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 space-y-3 md:space-y-0">
-            <h2 className="text-xl font-semibold">操作日志</h2>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={loadLogs}
-                disabled={isLoading}
-                className="px-3 py-1 text-sm border border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700 rounded disabled:opacity-50"
-              >
-                {isLoading ? '加载中...' : '刷新'}
-              </button>
+      )}
+      
+      <div className="bg-white dark:bg-slate-800 shadow-sm rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+        <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+          <div className="flex items-center space-x-4 w-full md:w-auto">
+            <div className="flex-1 min-w-[200px]">
               <select
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
-                className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
-                {actionTypes.map(type => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
+                {logTypes.map(type => (
+                  <option key={type.value} value={type.value}>{type.label}</option>
                 ))}
               </select>
             </div>
-          </div>
-          
-          <div className="mb-4">
-            <input
-              type="text"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              placeholder="搜索日志..."
-              className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
-            />
-          </div>
-          
-          <div className="overflow-y-auto max-h-[calc(100vh-300px)]">
-            {isLoading && logs.length === 0 ? (
-              <div className="flex justify-center items-center py-20">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 dark:border-blue-400"></div>
-              </div>
-            ) : filteredLogs.length > 0 ? (
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-800">
-                  <tr>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      时间
-                    </th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      操作
-                    </th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      详情
-                    </th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      数据
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {filteredLogs.map((log, index) => (
-                    <tr 
-                      key={log.id || index} 
-                      className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
-                      onClick={() => handleLogClick(log)}
-                    >
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                        {formatDateTime(log.timestamp)}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getActionStyle(log.action)}`}>
-                          {log.action}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2 text-sm text-gray-500 dark:text-gray-300 max-w-md truncate">
-                        {log.details}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                        {log.data ? (
-                          <button
-                            className="text-blue-600 dark:text-blue-400 hover:underline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleLogClick(log);
-                            }}
-                          >
-                            {getDataSummary(log)}
-                          </button>
-                        ) : "无数据"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div className="text-center py-12">
-                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
-                <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-200">暂无操作日志</h3>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  使用Chrome扩展开始自动化操作，日志将在此处显示
-                </p>
-              </div>
-            )}
-          </div>
-          
-          {filteredLogs.length > 0 && (
-            <div className="mt-4 text-sm text-gray-500 dark:text-gray-400 text-center">
-              显示 {filteredLogs.length} 条日志（共 {logs.length} 条）
+            <div className="flex-1 md:w-64">
+              <input
+                type="text"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                placeholder="搜索日志..."
+                className="w-full px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
             </div>
-          )}
+          </div>
+          
+          <div className="flex space-x-3 w-full md:w-auto">
+            <button
+              onClick={loadLogs}
+              disabled={isLoading}
+              className="flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg transition-colors disabled:opacity-50"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              刷新
+            </button>
+            <button
+              onClick={handleExportLogs}
+              disabled={isLoading || logs.length === 0}
+              className="flex items-center px-4 py-2 bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-800/50 text-green-800 dark:text-green-300 rounded-lg transition-colors disabled:opacity-50"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              导出
+            </button>
+            <button
+              onClick={handleClearLogs}
+              disabled={isLoading || logs.length === 0}
+              className="flex items-center px-4 py-2 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-800/50 text-red-800 dark:text-red-300 rounded-lg transition-colors disabled:opacity-50"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              清空
+            </button>
+          </div>
         </div>
         
-        {/* 日志详情弹窗 */}
-        {selectedLog && showData && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-slate-800 rounded-lg p-6 max-w-4xl w-full max-h-[80vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium">日志详情</h3>
-                <button 
-                  onClick={() => setShowData(false)}
-                  className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+        {isLoading && logs.length === 0 ? (
+          <div className="py-12 flex flex-col items-center justify-center">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 dark:border-blue-400 mb-4"></div>
+            <p className="text-gray-500 dark:text-gray-400">加载中...</p>
+          </div>
+        ) : logs.length === 0 ? (
+          <div className="py-12 text-center text-gray-500 dark:text-gray-400 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+            {filter || filterType !== 'all' ? '没有匹配的日志记录' : '暂无日志记录'}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filteredLogs.map((log) => (
+              <div 
+                key={log.id} 
+                className="p-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                onClick={() => handleLogClick(log)}
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-2">
+                  <div className="flex items-center">
+                    <span className={`px-2.5 py-1 text-xs font-medium rounded-full mr-2 ${getActionStyle(log.action)}`}>
+                      {log.action}
+                    </span>
+                    <span className="text-sm text-gray-800 dark:text-gray-200 font-medium">
+                      {log.details}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                    {formatDateTime(log.timestamp)}
+                  </div>
+                </div>
+                {log.data && (
+                  <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 flex items-center">
+                    <span className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">
+                      {getDataSummary(log)}
+                    </span>
+                    <button className="ml-2 text-blue-600 dark:text-blue-400 hover:underline">
+                      查看详情
+                    </button>
+                  </div>
+                )}
               </div>
-              
-              <div className="grid grid-cols-2 gap-4 mb-4">
+            ))}
+          </div>
+        )}
+        
+        {/* 分页控件 */}
+        {logs.length > 0 && (
+          <div className="mt-6 flex justify-between items-center">
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              共 <span className="font-medium">{logs.length}</span> 条记录
+              {filterType !== 'all' || filter ? 
+                `，匹配 ${filteredLogs.length} 条` : ''}
+            </div>
+          </div>
+        )}
+      </div>
+      
+      {/* 日志详情模态框 */}
+      {selectedLog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
+            <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 p-4">
+              <h3 className="text-lg font-bold">日志详情</h3>
+              <button 
+                onClick={() => setSelectedLog(null)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(90vh-4rem)]">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">操作类型</p>
+                  <p className={`mt-1 px-2.5 py-1 text-xs font-medium rounded-full inline-block ${getActionStyle(selectedLog.action)}`}>
+                    {selectedLog.action}
+                  </p>
+                </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">时间</p>
-                  <p className="text-sm font-normal text-gray-900 dark:text-gray-100">
-                    {formatDateTime(selectedLog.timestamp)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">操作</p>
-                  <p className="text-sm font-normal">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getActionStyle(selectedLog.action)}`}>
-                      {selectedLog.action}
-                    </span>
-                  </p>
+                  <p className="mt-1 text-sm">{formatDateTime(selectedLog.timestamp)}</p>
                 </div>
               </div>
               
-              <div className="mb-4">
+              <div>
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">详情</p>
-                <p className="text-sm font-normal text-gray-900 dark:text-gray-100 whitespace-pre-wrap">
+                <p className="mt-1 p-2 bg-gray-50 dark:bg-gray-900 rounded text-sm">
                   {selectedLog.details}
                 </p>
               </div>
               
               {selectedLog.data && (
                 <div>
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">数据</p>
-                  <div className="bg-gray-100 dark:bg-gray-900 p-4 rounded overflow-auto">
-                    <pre className="text-xs text-gray-900 dark:text-gray-100">
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">数据</p>
+                  <div className="mt-1 p-3 bg-gray-50 dark:bg-gray-900 rounded overflow-x-auto">
+                    <pre className="text-xs whitespace-pre-wrap">
                       {JSON.stringify(selectedLog.data, null, 2)}
                     </pre>
                   </div>
                 </div>
               )}
-              
-              <div className="mt-4 text-right">
-                <button
-                  onClick={() => setShowData(false)}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                >
-                  关闭
-                </button>
-              </div>
+            </div>
+            
+            <div className="border-t border-gray-200 dark:border-gray-700 p-4 flex justify-end">
+              <button 
+                onClick={() => setSelectedLog(null)}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg transition-colors"
+              >
+                关闭
+              </button>
             </div>
           </div>
-        )}
-      </div>
-    </>
+        </div>
+      )}
+    </div>
   );
 } 

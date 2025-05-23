@@ -41,6 +41,7 @@ export default function Homepage() {
   const [detecting, setDetecting] = useState(false);
   const [launching, setLaunching] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showLaunchOptions, setShowLaunchOptions] = useState(false);
   
   // 当前流程步骤
   const [currentStep, setCurrentStep] = useState(0);
@@ -53,11 +54,11 @@ export default function Homepage() {
   // 处理下一步操作
   const handleNextStep = () => {
     if (!pageDetected) {
-      // 启动Chrome浏览器并导航到Boss直聘
-      launchBrowser();
+      // 启动Chrome浏览器并导航到Boss直聘，使用默认配置文件保留登录信息
+      launchBrowserWithOptions();
     } else if (!hasRules) {
-      // 跳转到规则设置
-      handleNavClick('rules');
+      // 跳转到AI智能筛选
+      handleNavClick('ai-rules');
     } else {
       // 启动自动化
       startAutomation();
@@ -65,7 +66,7 @@ export default function Homepage() {
   };
   
   // 处理导航点击
-  const handleNavClick = (module: 'candidates' | 'rules' | 'logs' | 'ai-chat' | 'settings') => {
+  const handleNavClick = (module: 'candidates' | 'rules' | 'simple-rules' | 'ai-rules' | 'logs' | 'ai-chat' | 'settings') => {
     setActiveModule(module);
   };
   
@@ -137,10 +138,13 @@ export default function Homepage() {
   };
   
   // 启动Chrome浏览器
-  const launchBrowser = async (forceNew = false) => {
+  const launchBrowser = async (forceNew = false, useDefaultProfile = true) => {
     setLaunching(true);
     setErrorMessage(null);
     try {
+      // 调用后端API启动系统Chrome浏览器（以调试模式）
+      // 这确保使用的是用户电脑本身的Chrome而不是Playwright内置浏览器
+      // 使用系统Chrome可以有效绕过Boss直聘的反爬机制
       const response = await fetch('http://localhost:8000/api/browser/launch', {
         method: 'POST',
         headers: {
@@ -148,7 +152,9 @@ export default function Homepage() {
         },
         body: JSON.stringify({
           url: 'https://www.zhipin.com/web/boss/recommend',
-          force_new: forceNew
+          force_new: forceNew,  // 通常应该为false，避免创建多个浏览器实例
+          use_default_profile: useDefaultProfile,  // 新增：是否使用默认配置文件
+          wait_for_pages: true  // 新增：等待现有页面而不是创建新页面
         })
       });
       
@@ -169,10 +175,17 @@ export default function Homepage() {
         } else {
           // 浏览器启动但未连接到目标页面
           setErrorMessage(data.message || '浏览器已启动，但未能连接到Boss直聘页面，请稍后重试检测');
-          setTimeout(detectBrowser, 5000); // 5秒后再次检测
+          
+          // 5秒后再次检测
+          setTimeout(detectBrowser, 5000);
         }
       } else {
-        setErrorMessage(data.message || '启动浏览器失败，请确保Chrome浏览器已安装');
+        // 如果启动失败，显示错误消息并提供手动操作指南
+        setErrorMessage(
+          data.message || 
+          '启动浏览器失败，请尝试手动启动Chrome：\n' +
+          '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --remote-debugging-port=9222'
+        );
       }
     } catch (error) {
       console.error('启动浏览器失败:', error);
@@ -180,6 +193,17 @@ export default function Homepage() {
     } finally {
       setLaunching(false);
     }
+  };
+  
+  // 启动浏览器的高级选项
+  const launchBrowserWithOptions = async () => {
+    // 显示选项对话框或直接使用默认配置文件启动
+    await launchBrowser(false, true);  // 使用默认配置文件
+  };
+
+  // 启动全新浏览器实例（独立配置文件）
+  const launchCleanBrowser = async () => {
+    await launchBrowser(false, false);  // 使用独立配置文件
   };
   
   // 启动自动化
@@ -259,6 +283,23 @@ export default function Homepage() {
     // 清理定时器
     return () => clearInterval(intervalId);
   }, []);
+
+  // 点击外部关闭下拉菜单
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showLaunchOptions) {
+        const target = event.target as Element;
+        if (!target.closest('.launch-options-container')) {
+          setShowLaunchOptions(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showLaunchOptions]);
 
   // 模拟数据
   const timeStats = {
@@ -430,25 +471,49 @@ export default function Homepage() {
                     {detecting ? '检测中...' : '重新检测'}
                   </button>
                   
-                  <div className="relative inline-block flex-1 sm:flex-none">
-                    <button 
-                      onClick={() => launchBrowser(false)} 
-                      disabled={launching}
-                      className={`w-full px-3 py-1 text-xs rounded-md bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300 ${launching ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      {launching ? '启动中...' : '启动浏览器'}
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        launchBrowser(true);
-                      }}
-                      disabled={launching}
-                      className="absolute top-0 right-0 -mr-2 -mt-2 w-5 h-5 bg-blue-500 rounded-full text-white text-xs flex items-center justify-center hover:bg-blue-600"
-                      title="强制启动新浏览器"
-                    >
-                      +
-                    </button>
+                  <div className="relative inline-block flex-1 sm:flex-none launch-options-container">
+                    <div className="flex">
+                      <button 
+                        onClick={() => launchBrowserWithOptions()} 
+                        disabled={launching}
+                        className={`flex-1 px-3 py-1 text-xs rounded-l-md bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300 ${launching ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-200 dark:hover:bg-blue-800'}`}
+                      >
+                        {launching ? '启动中...' : '启动浏览器'}
+                      </button>
+                      <button
+                        onClick={() => setShowLaunchOptions(!showLaunchOptions)}
+                        disabled={launching}
+                        className={`px-2 py-1 text-xs rounded-r-md bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300 border-l border-blue-200 dark:border-blue-700 ${launching ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-200 dark:hover:bg-blue-800'}`}
+                      >
+                        ▼
+                      </button>
+                    </div>
+                    
+                    {/* 启动选项下拉菜单 */}
+                    {showLaunchOptions && (
+                      <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-10 min-w-full whitespace-nowrap">
+                        <button
+                          onClick={() => {
+                            launchBrowserWithOptions();
+                            setShowLaunchOptions(false);
+                          }}
+                          disabled={launching}
+                          className="block w-full px-3 py-2 text-xs text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-t-md"
+                        >
+                          🔐 使用默认配置（保留登录）
+                        </button>
+                        <button
+                          onClick={() => {
+                            launchCleanBrowser();
+                            setShowLaunchOptions(false);
+                          }}
+                          disabled={launching}
+                          className="block w-full px-3 py-2 text-xs text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-b-md"
+                        >
+                          🆕 独立配置（全新浏览器）
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

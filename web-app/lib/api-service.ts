@@ -8,13 +8,20 @@ import { LogEntry } from './log-service';
 
 // API端点配置
 const API_CONFIG = {
+  // 强制使用外部Python API，不使用Next.js内置路由
   baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
   endpoints: {
     logs: '/api/logs',
     candidates: '/api/candidates',
     operations: '/api/operations',
-  }
+  },
+  // 添加重试配置
+  retryAttempts: 3,
+  retryDelay: 1000, // 1秒
 };
+
+// 是否启用调试模式
+const DEBUG_MODE = true;
 
 // 响应接口
 interface ApiResponse<T> {
@@ -26,11 +33,11 @@ interface ApiResponse<T> {
 
 // 候选人数据接口
 export interface CandidateData {
-  id: string;
-  name: string;
-  education: string;
-  experience: string;
-  skills: string[];
+  id?: string;
+  name?: string;
+  education?: string;
+  experience?: string;
+  skills?: string[];
   company?: string;
   school?: string;
   position?: string;
@@ -43,6 +50,9 @@ export interface CandidateData {
   status?: 'new' | 'processing' | 'contacted' | 'rejected' | 'hired';
   createdAt?: string;
   updatedAt?: string;
+  matchScore?: number;  // 匹配度得分
+  match?: number;       // 兼容旧版匹配度
+  greeting?: string;    // 打招呼语
 }
 
 // 操作日志接口
@@ -64,18 +74,32 @@ export class ApiService {
   
   constructor(baseUrl?: string) {
     this.baseUrl = baseUrl || API_CONFIG.baseUrl;
+    if (DEBUG_MODE) {
+      console.log(`API服务初始化，baseUrl: ${this.baseUrl}`);
+      console.log(`强制使用外部Python API，不使用Next.js内置路由`);
+    }
   }
   
   /**
-   * 通用请求方法
+   * 延迟函数
+   */
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+  
+  /**
+   * 通用请求方法（带重试机制）
    */
   private async request<T>(
     endpoint: string, 
     method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
-    data?: any
+    data?: any,
+    retryCount: number = 0
   ): Promise<ApiResponse<T>> {
     try {
       const url = `${this.baseUrl}${endpoint}`;
+      console.log(`DEBUG: 开始API请求: ${method} ${url} (尝试 ${retryCount + 1}/${API_CONFIG.retryAttempts + 1})`);
+      
       const options: RequestInit = {
         method,
         headers: {
@@ -83,17 +107,44 @@ export class ApiService {
           'Accept': 'application/json',
         },
         credentials: 'include', // 包含跨域Cookie
+        // 添加超时设置
+        signal: AbortSignal.timeout(10000), // 10秒超时
       };
       
       if (data) {
         options.body = JSON.stringify(data);
       }
       
+      if (DEBUG_MODE) {
+        console.log(`API请求: ${method} ${url}`, data ? data : '');
+      }
+      
       const response = await fetch(url, options);
+      console.log(`DEBUG: 收到响应状态: ${response.status} ${response.statusText}`);
       const contentType = response.headers.get('content-type');
+      console.log(`DEBUG: 响应内容类型: ${contentType}`);
+      
+      let result: any;
       
       if (contentType?.includes('application/json')) {
-        const result = await response.json();
+        result = await response.json();
+        
+        console.log(`DEBUG: API JSON响应:`, result);
+        
+        // 检查数据结构
+        if (result.data) {
+          console.log(`DEBUG: 响应包含data字段，类型: ${Array.isArray(result.data) ? 'Array' : typeof result.data}`);
+          if (Array.isArray(result.data)) {
+            console.log(`DEBUG: 数组长度: ${result.data.length}`);
+          }
+        } else {
+          console.log(`DEBUG: 响应不包含data字段!`);
+        }
+        
+        if (DEBUG_MODE) {
+          console.log(`API响应: ${method} ${url}`, result);
+        }
+        
         return {
           success: response.ok,
           data: result.data,
@@ -102,6 +153,11 @@ export class ApiService {
         };
       } else {
         const text = await response.text();
+        
+        if (DEBUG_MODE) {
+          console.log(`API响应(文本): ${method} ${url}`, text);
+        }
+        
         return {
           success: response.ok,
           data: text as unknown as T,
@@ -110,6 +166,19 @@ export class ApiService {
       }
     } catch (error) {
       console.error('API请求错误:', error);
+      
+      // 如果是网络错误且还有重试次数，则重试
+      if (retryCount < API_CONFIG.retryAttempts && 
+          (error instanceof TypeError || error instanceof DOMException)) {
+        console.log(`网络错误，${API_CONFIG.retryDelay}ms后重试...`);
+        await this.delay(API_CONFIG.retryDelay);
+        return this.request<T>(endpoint, method, data, retryCount + 1);
+      }
+      
+      if (DEBUG_MODE) {
+        console.error(`API请求失败: ${method} ${endpoint}`, error);
+      }
+      
       return {
         success: false,
         error: error instanceof Error ? error.message : '未知错误'

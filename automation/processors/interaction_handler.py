@@ -42,56 +42,119 @@ class InteractionHandler:
             bool: 是否成功打招呼
         """
         try:
+            candidate_name = resume_data.get('name', '未知候选人')
+            print(f"💬 开始向候选人 {candidate_name} 打招呼...")
+            
             # 随机延迟，模拟人工操作
-            await asyncio.sleep(random.uniform(0.8, 1.5))
+            delay = random.uniform(0.8, 1.5)
+            print(f"⏳ 模拟人工操作延迟 {delay:.1f}秒...")
+            await asyncio.sleep(delay)
             
             # 点击打招呼按钮
+            print(f"🎯 点击打招呼按钮...")
             await button.click()
-            print(f"已点击打招呼按钮")
+            print(f"✅ 已点击打招呼按钮")
             
             # 等待对话框出现
-            await asyncio.sleep(random.uniform(1.0, 2.0))
+            dialog_delay = random.uniform(1.0, 2.0)
+            print(f"⏳ 等待对话框出现 {dialog_delay:.1f}秒...")
+            await asyncio.sleep(dialog_delay)
             
             # 构建招呼语
             greeting = self._generate_greeting(resume_data)
+            print(f"📝 生成招呼语: {greeting}")
             
             # 查找输入框并输入招呼语
-            text_area = await button.page.query_selector('.chat-editor' or 'textarea')
+            print(f"🔍 查找输入框...")
+            text_selectors = [
+                '.chat-editor',
+                'textarea',
+                '.input-text',
+                '.message-input',
+                'input[type="text"]',
+                '.text-input'
+            ]
             
+            text_area = None
+            for selector in text_selectors:
+                try:
+                    text_area = await button.page.query_selector(selector)
+                    if text_area:
+                        is_visible = await text_area.is_visible()
+                        if is_visible:
+                            print(f"✅ 使用选择器 {selector} 找到输入框")
+                            break
+                        else:
+                            print(f"⚠️ 选择器 {selector} 找到输入框但不可见")
+                except Exception as e:
+                    print(f"⚠️ 选择器 {selector} 查找失败: {e}")
+                    
             if text_area:
+                print(f"⌨️ 开始输入招呼语...")
                 # 逐个字符输入，模拟人工输入
-                for char in greeting:
+                for i, char in enumerate(greeting):
                     await text_area.type(char, delay=random.uniform(50, 150))
                     await asyncio.sleep(random.uniform(0.01, 0.03))
+                    if i > 0 and i % 10 == 0:  # 每10个字符显示一次进度
+                        print(f"⌨️ 输入进度: {i}/{len(greeting)} 字符")
                 
-                print(f"已输入招呼语: {greeting}")
+                print(f"✅ 完成招呼语输入: {greeting}")
                 
                 # 随机延迟，模拟思考时间
-                await asyncio.sleep(random.uniform(0.8, 1.5))
+                think_delay = random.uniform(0.8, 1.5)
+                print(f"🤔 模拟思考时间 {think_delay:.1f}秒...")
+                await asyncio.sleep(think_delay)
                 
                 # 查找发送按钮并点击
-                send_button = await button.page.query_selector(
-                    '.send-message-btn' or 'button:has-text("发送")'
-                )
+                print(f"🔍 查找发送按钮...")
+                send_selectors = [
+                    '.send-message-btn',
+                    'button:has-text("发送")',
+                    '.btn-send',
+                    '.send-btn',
+                    'button[type="submit"]',
+                    '.submit-btn'
+                ]
+                
+                send_button = None
+                for selector in send_selectors:
+                    try:
+                        send_button = await button.page.query_selector(selector)
+                        if send_button:
+                            is_visible = await send_button.is_visible()
+                            if is_visible:
+                                print(f"✅ 使用选择器 {selector} 找到发送按钮")
+                                break
+                            else:
+                                print(f"⚠️ 选择器 {selector} 找到发送按钮但不可见")
+                    except Exception as e:
+                        print(f"⚠️ 选择器 {selector} 查找失败: {e}")
                 
                 if send_button:
+                    print(f"📤 点击发送按钮...")
                     await send_button.click()
-                    print(f"已发送招呼")
+                    print(f"✅ 已发送招呼")
                     
                     # 等待发送完成
-                    await asyncio.sleep(random.uniform(1.0, 2.0))
+                    send_delay = random.uniform(1.0, 2.0)
+                    print(f"⏳ 等待发送完成 {send_delay:.1f}秒...")
+                    await asyncio.sleep(send_delay)
                     
                     # 记录候选人信息
+                    print(f"📊 记录候选人信息...")
                     self.record_candidate_info(resume_data)
                     
+                    print(f"🎉 成功向候选人 {candidate_name} 打招呼！")
                     return True
                 else:
-                    print("未找到发送按钮")
+                    print("❌ 未找到发送按钮")
             else:
-                print("未找到输入框")
+                print("❌ 未找到输入框")
                 
         except Exception as e:
-            print(f"打招呼失败: {e}")
+            print(f"❌ 向候选人 {candidate_name} 打招呼失败: {e}")
+            import traceback
+            traceback.print_exc()
             
         return False
         

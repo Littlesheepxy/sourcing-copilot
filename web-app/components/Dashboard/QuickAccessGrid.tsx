@@ -1,7 +1,7 @@
 "use client";
 
 import React, { ReactNode } from "react";
-import { Users, Settings, BookOpen, MessageSquare } from "lucide-react";
+import { Users, Settings, BookOpen, MessageSquare, Brain } from "lucide-react";
 
 type QuickAccessItem = {
   id: string;
@@ -29,12 +29,12 @@ const QuickAccessGrid: React.FC<QuickAccessGridProps> = ({ title, onNavigate }) 
       onClick: () => onNavigate("candidates")
     },
     {
-      id: "rules",
-      label: "规则设置",
-      icon: <Settings className="h-6 w-6" />,
-      bgColor: "bg-amber-50 dark:bg-amber-900/20",
-      iconColor: "text-amber-600 dark:text-amber-400",
-      onClick: () => onNavigate("rules")
+      id: "ai-rules",
+      label: "AI筛选",
+      icon: <Brain className="h-6 w-6" />,
+      bgColor: "bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20",
+      iconColor: "text-purple-600 dark:text-purple-400",
+      onClick: () => onNavigate("ai-rules")
     },
     {
       id: "logs",
@@ -45,12 +45,12 @@ const QuickAccessGrid: React.FC<QuickAccessGridProps> = ({ title, onNavigate }) 
       onClick: () => onNavigate("logs")
     },
     {
-      id: "ai-chat",
-      label: "AI对话",
-      icon: <MessageSquare className="h-6 w-6" />,
-      bgColor: "bg-purple-50 dark:bg-purple-900/20",
-      iconColor: "text-purple-600 dark:text-purple-400",
-      onClick: () => onNavigate("ai-chat")
+      id: "simple-rules",
+      label: "高级规则",
+      icon: <Settings className="h-6 w-6" />,
+      bgColor: "bg-amber-50 dark:bg-amber-900/20",
+      iconColor: "text-amber-600 dark:text-amber-400",
+      onClick: () => onNavigate("simple-rules")
     }
   ];
 
@@ -62,8 +62,17 @@ const QuickAccessGrid: React.FC<QuickAccessGridProps> = ({ title, onNavigate }) 
           <button
             key={item.id}
             onClick={item.onClick}
-            className={`${item.bgColor} p-4 rounded-xl flex flex-col items-center text-center transition-all duration-200 hover:shadow-md border border-transparent hover:border-gray-200 dark:hover:border-gray-700`}
+            className={`${item.bgColor} p-4 rounded-xl flex flex-col items-center text-center transition-all duration-200 hover:shadow-md border border-transparent hover:border-gray-200 dark:hover:border-gray-700 ${
+              item.id === 'ai-rules' ? 'relative overflow-hidden' : ''
+            }`}
           >
+            {/* AI筛选按钮的特殊样式 */}
+            {item.id === 'ai-rules' && (
+              <div className="absolute top-1 right-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs px-2 py-0.5 rounded-full">
+                AI
+              </div>
+            )}
+            
             <div className={`${item.iconColor} mb-2`}>
               {item.icon}
             </div>

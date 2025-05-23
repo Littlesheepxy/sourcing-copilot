@@ -218,9 +218,9 @@ export default function CandidateViewer() {
       case 'new': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
       case 'processing': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
       case 'contacted': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
-      case 'hired': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
       case 'rejected': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
+      case 'hired': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
     }
   };
   
@@ -228,10 +228,10 @@ export default function CandidateViewer() {
   const getStatusText = (status?: string) => {
     switch (status) {
       case 'new': return '新候选人';
-      case 'processing': return '处理中';
+      case 'processing': return '跟进中';
       case 'contacted': return '已联系';
+      case 'rejected': return '已淘汰';
       case 'hired': return '已录用';
-      case 'rejected': return '已拒绝';
       default: return '未知状态';
     }
   };
@@ -305,12 +305,25 @@ export default function CandidateViewer() {
                 </span>
               </div>
               
-              <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
-                <p><span className="font-medium">教育背景:</span> {candidate.education}</p>
-                <p><span className="font-medium">经验:</span> {candidate.experience}</p>
-                <p><span className="font-medium">公司:</span> {candidate.company || "未知"}</p>
-                <p><span className="font-medium">学校:</span> {candidate.school || "未知"}</p>
-                <p><span className="font-medium">职位:</span> {candidate.position || "未知"}</p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-gray-600 dark:text-gray-300">
+                <div>
+                  <span className="font-medium">期望职位:</span> {candidate.position || "未知"}
+                </div>
+                <div>
+                  <span className="font-medium">教育背景:</span> {candidate.education}
+                </div>
+                <div>
+                  <span className="font-medium">毕业学校:</span> {candidate.school || "未知"}
+                </div>
+                <div>
+                  <span className="font-medium">当前公司:</span> {candidate.company || "未知"}
+                </div>
+                <div>
+                  <span className="font-medium">工作经验:</span> {candidate.experience}
+                </div>
+                <div>
+                  <span className="font-medium">匹配度:</span> <span className="text-green-600 dark:text-green-400 font-semibold">{candidate.matchScore || candidate.match || "85"}%</span>
+                </div>
               </div>
               
               {candidate.skills && candidate.skills.length > 0 && (
@@ -329,17 +342,46 @@ export default function CandidateViewer() {
                 </div>
               )}
               
+              {candidate.greeting && (
+                <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                  <h4 className="text-sm font-medium mb-1">打招呼语:</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+                    {candidate.greeting}
+                  </p>
+                </div>
+              )}
+              
               <div className="mt-4 text-xs text-gray-500 dark:text-gray-400">
                 {candidate.createdAt && (
                   <p>添加时间: {new Date(candidate.createdAt).toLocaleString('zh-CN')}</p>
                 )}
               </div>
               
-              <button
-                className="mt-4 w-full px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded text-sm font-medium transition-colors"
-              >
-                查看详情
-              </button>
+              <div className="mt-4 flex space-x-2">
+                <button
+                  className="flex-1 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded text-sm font-medium transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    viewCandidateDetail(candidate);
+                  }}
+                >
+                  查看详情
+                </button>
+                <button
+                  className={`flex-1 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                    candidate.status === 'contacted' 
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                      : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const newStatus = candidate.status === 'contacted' ? 'processing' : 'contacted';
+                    updateCandidateStatus(candidate, newStatus);
+                  }}
+                >
+                  {candidate.status === 'contacted' ? '已打招呼' : '标记已打招呼'}
+                </button>
+              </div>
             </div>
           ))}
         </div>

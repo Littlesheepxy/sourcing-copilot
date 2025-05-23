@@ -216,18 +216,103 @@ class ResumeCardProcessor:
                         print(f"已使用hover+Enter方式尝试进入详情页")
                 
                 # 等待详情页加载
-                await asyncio.sleep(2)
+                await asyncio.sleep(5)  # 从2秒增加到5秒，确保页面充分加载
+                
+                # 首先尝试直接检查当前页面是否是详情页
+                current_url = page.url
+                print(f"点击后当前页面URL: {current_url}")
+                
+                # 检查是否有详情页内容（BOSS直聘的简历详情结构）
+                detail_content_found = False
+                try:
+                    # 首先检查是否有弹窗形式的详情页（BOSS直聘常见形式）
+                    dialog_selectors = [
+                        '.dialog-wrap',
+                        '.modal',
+                        '.popup',
+                        '[data-type="boss-dialog"]',
+                        '.ka-dialog',
+                        '.ui-dialog',
+                        '.layui-layer',
+                        '.dialog'
+                    ]
+                    
+                    for dialog_selector in dialog_selectors:
+                        try:
+                            dialog = await page.wait_for_selector(dialog_selector, timeout=2000)
+                            if dialog:
+                                is_visible = await dialog.is_visible()
+                                if is_visible:
+                                    print(f"✅ 检测到弹窗详情页: {dialog_selector}")
+                                    
+                                    # 在弹窗内检查是否有简历内容
+                                    resume_content = await dialog.query_selector('.resume-detail-wrap, [data-v-bcc3a4cc], .geek-base-info-wrap, .geek-expect-wrap, .geek-work-experience-wrap')
+                                    if resume_content:
+                                        print(f"✅ 在弹窗中找到简历详情内容")
+                                        detail_content_found = True
+                                        break
+                        except Exception:
+                            continue
+                    
+                    # 如果没有找到弹窗，检查主页面的详情页元素
+                    if not detail_content_found:
+                        detail_selectors = [
+                            '.resume-detail-wrap',
+                            '[data-v-bcc3a4cc]',
+                            '.geek-base-info-wrap',
+                            '.geek-expect-wrap',
+                            '.geek-work-experience-wrap'
+                        ]
+                        
+                        for selector in detail_selectors:
+                            try:
+                                element = await page.wait_for_selector(selector, timeout=3000)
+                                if element:
+                                    print(f"✅ 在页面中检测到详情页内容: {selector}")
+                                    detail_content_found = True
+                                    break
+                            except Exception:
+                                continue
+                    
+                    if detail_content_found:
+                        print("🎯 检测到详情页内容，直接处理详情页")
+                        # 调用详情页处理方法
+                        detail_processed = await self.processor.process_detail_page(page, config, resume_data)
+                        
+                        # 增加等待详情页处理完成的时间
+                        max_wait = 15  # 从5秒增加到15秒
+                        wait_count = 0
+                        while self.processor.detail_processor.processing_detail and wait_count < max_wait:
+                            print(f"⏳ 等待最终详情页处理完成... ({wait_count}/{max_wait}秒)")
+                            await asyncio.sleep(1)
+                            wait_count += 1
+                        
+                        if wait_count >= max_wait:
+                            print("⚠️ 等待最终详情页处理超时（15秒），强制继续")
+                        else:
+                            print(f"✅ 最终详情页处理已完成，用时 {wait_count} 秒")
+                        
+                        # 标记为已处理
+                        self.processor.processed_ids.add(card_id)
+                        return True
+                        
+                except Exception as e:
+                    print(f"检测详情页内容时出错: {e}")
+                
+                # 如果没有找到详情页内容，检查iframe
+                print("🔍 未在主页面找到详情页内容，检查iframe...")
                 
                 # 检查详情页iframe
                 detail_iframe = None
                 try:
                     # 尝试查找简历详情iframe
                     iframe_selectors = [
-                        'iframe[src*="c-resume"]',
+                        'iframe[name="recommendFrame"]',
+                        'iframe[src*="frame/recommend"]',
+                        'iframe[data-v-16429d95]',
+                        'iframe[src*="recommend"]',
                         'iframe[src*="resumeDetail"]',
                         'iframe[src*="detail"]',
-                        'iframe[src*="frame/c-resume"]',
-                        'iframe[src^="https://www.zhipin.com/web/frame/c-resume"]',
                         'iframe'
                     ]
                     
@@ -271,18 +356,18 @@ class ResumeCardProcessor:
                                 # 直接调用处理详情页iframe的方法
                                 detail_processed = await self.processor.process_detail_page_iframe(detail_iframe, page, config, resume_data)
                                 
-                                # 等待详情页处理完成（检查OCR是否完成）
-                                max_wait = 5  # 最长等待5秒，从60秒降低为5秒
+                                # 增加等待详情页处理完成的时间
+                                max_wait = 15  # 从5秒增加到15秒
                                 wait_count = 0
                                 while self.processor.detail_processor.processing_detail and wait_count < max_wait:
-                                    print(f"⏳ 等待详情页处理完成... ({wait_count}/{max_wait}秒)")
+                                    print(f"⏳ 等待iframe详情页处理完成... ({wait_count}/{max_wait}秒)")
                                     await asyncio.sleep(1)
                                     wait_count += 1
                                 
                                 if wait_count >= max_wait:
-                                    print("⚠️ 等待详情页处理超时（5秒），强制继续")
+                                    print("⚠️ 等待iframe详情页处理超时（15秒），强制继续")
                                 else:
-                                    print(f"✅ 详情页处理已完成，用时 {wait_count} 秒")
+                                    print(f"✅ iframe详情页处理已完成，用时 {wait_count} 秒")
                                 
                                 # 标记为已处理
                                 self.processor.processed_ids.add(card_id)
@@ -292,36 +377,45 @@ class ResumeCardProcessor:
                 
                 # 提取详情页URL，检查是否成功跳转
                 current_url = page.url
-                if "detail" not in current_url and "resumeDetail" not in current_url:
-                    # 再次尝试检查iframe
+                # BOSS直聘的详情页URL通常包含recommend或detail
+                if "recommend" in current_url or "detail" in current_url or "resumeDetail" in current_url:
+                    print(f"✅ 检测到BOSS直聘详情页URL: {current_url}")
+                    # 再次尝试检查iframe中的内容
                     try:
                         all_frames = page.frames
-                        for frame in all_frames:
-                            frame_url = frame.url
-                            if "c-resume" in frame_url or "detail" in frame_url:
-                                print(f"在frame中找到详情页URL: {frame_url}")
-                                # 使用找到的frame处理详情页
-                                detail_processed = await self.processor.process_detail_page_iframe(frame, page, config, resume_data)
-                                
-                                # 等待详情页处理完成（检查OCR是否完成）
-                                max_wait = 5  # 最长等待5秒，从60秒降低为5秒
-                                wait_count = 0
-                                while self.processor.detail_processor.processing_detail and wait_count < max_wait:
-                                    print(f"⏳ 等待详情页处理完成... ({wait_count}/{max_wait}秒)")
-                                    await asyncio.sleep(1)
-                                    wait_count += 1
-                                
-                                if wait_count >= max_wait:
-                                    print("⚠️ 等待详情页处理超时（5秒），强制继续")
-                                else:
-                                    print(f"✅ 详情页处理已完成，用时 {wait_count} 秒")
-                                
-                                # 标记为已处理
-                                self.processor.processed_ids.add(card_id)
-                                return True
+                        print(f"🔍 检查到 {len(all_frames)} 个frame")
+                        for i, frame in enumerate(all_frames):
+                            try:
+                                frame_url = frame.url
+                                print(f"Frame {i}: {frame_url}")
+                                if "recommend" in frame_url or "detail" in frame_url:
+                                    print(f"在frame中找到详情页URL: {frame_url}")
+                                    # 使用找到的frame处理详情页
+                                    detail_processed = await self.processor.process_detail_page_iframe(frame, page, config, resume_data)
+                                    
+                                    # 增加等待详情页处理完成的时间
+                                    max_wait = 15  # 从5秒增加到15秒
+                                    wait_count = 0
+                                    while self.processor.detail_processor.processing_detail and wait_count < max_wait:
+                                        print(f"⏳ 等待frame详情页处理完成... ({wait_count}/{max_wait}秒)")
+                                        await asyncio.sleep(1)
+                                        wait_count += 1
+                                    
+                                    if wait_count >= max_wait:
+                                        print("⚠️ 等待frame详情页处理超时（15秒），强制继续")
+                                    else:
+                                        print(f"✅ frame详情页处理已完成，用时 {wait_count} 秒")
+                                    
+                                    # 标记为已处理
+                                    self.processor.processed_ids.add(card_id)
+                                    return True
+                            except Exception as frame_error:
+                                print(f"检查frame {i} 时出错: {frame_error}")
+                                continue
                     except Exception as e:
                         print(f"检查所有frames时出错: {e}")
-                        
+                else:
+                    print(f"URL未包含详情页特征: {current_url}")
                     print("点击卡片后未能正确跳转到详情页")
                     self.processor.processed_ids.add(card_id)
                     return False
@@ -330,18 +424,18 @@ class ResumeCardProcessor:
                 print("调用详情页处理方法")
                 detail_processed = await self.processor.process_detail_page(page, config, resume_data)
                 
-                # 等待详情页处理完成（检查OCR是否完成）
-                max_wait = 5  # 最长等待5秒，从60秒降低为5秒
+                # 增加等待详情页处理完成的时间
+                max_wait = 15  # 从5秒增加到15秒
                 wait_count = 0
                 while self.processor.detail_processor.processing_detail and wait_count < max_wait:
-                    print(f"⏳ 等待详情页处理完成... ({wait_count}/{max_wait}秒)")
+                    print(f"⏳ 等待最终详情页处理完成... ({wait_count}/{max_wait}秒)")
                     await asyncio.sleep(1)
                     wait_count += 1
                 
                 if wait_count >= max_wait:
-                    print("⚠️ 等待详情页处理超时（5秒），强制继续")
+                    print("⚠️ 等待最终详情页处理超时（15秒），强制继续")
                 else:
-                    print(f"✅ 详情页处理已完成，用时 {wait_count} 秒")
+                    print(f"✅ 最终详情页处理已完成，用时 {wait_count} 秒")
                 
                 # 标记为已处理
                 self.processor.processed_ids.add(card_id)
