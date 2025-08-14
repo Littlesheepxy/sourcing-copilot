@@ -64,4 +64,34 @@ bot_detection_test.png
 # 临时脚本
 connect_existing_chrome.py
 launch_browser.py
-stealth.min.js 
+stealth.min.js
+
+# 应用程序包和安装文件
+*.dmg
+*.pkg
+*.app
+*.exe
+*.msi
+
+# 打包文件
+*.tar.gz
+*.zip
+*.rar
+
+# macOS 库文件和用户数据
+~/Library/Application\ Support/SourcingCopilot/
+
+# 锁文件（保留 package-lock.json，但忽略其他）
+pnpm-lock.yaml
+yarn.lock
+
+# 备份文件
+backup/
+*.backup
+*.bak
+
+# 临时图标文件
+temp-icons/
+
+# 构建脚本输出
+*.spec 
