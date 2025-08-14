@@ -19,8 +19,9 @@ export default function AppLayout() {
       const pathToModule = {
         '/': 'home',
         '/candidates': 'candidates',
-        '/rules': 'simple-rules', // 将 rules 路径也映射到 simple-rules 模块
-        '/simple-rules': 'simple-rules',
+        '/rules': 'ai-rules', // 将 rules 路径映射到 ai-rules 模块
+        '/simple-rules': 'ai-rules', // 将 simple-rules 也映射到 ai-rules 模块
+        '/ai-rules': 'ai-rules', // AI智能筛选路径映射
         '/logs': 'logs',
         '/settings': 'settings',
         '/ai-chat': 'ai-chat'

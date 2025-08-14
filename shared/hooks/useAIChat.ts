@@ -27,6 +27,9 @@ interface AIChatState {
   // 发送消息
   sendMessage: (content: string) => Promise<string>;
   
+  // 发送流式消息
+  sendMessageStream: (content: string, onChunk: (chunk: string) => void) => Promise<string>;
+  
   // 清空消息
   clearMessages: () => void;
   
@@ -49,9 +52,18 @@ const DEFAULT_CONFIG: AIConfig = {
  * 默认系统提示
  */
 const DEFAULT_SYSTEM_PROMPT = 
-  '你是Boss直聘Sourcing智能助手，你的任务是帮助我更好地筛选和评估候选人。' +
-  '你可以帮我分析简历、撰写邮件和消息、提供有关人才招聘的专业建议。' +
-  '请尽量给出简洁明了的回答，如果你不确定或不知道，请直接告诉我。';
+  '你是Boss直聘Sourcing智能助手，一个专业的人才招聘AI顾问。你的职责是：\n\n' +
+  '**核心能力：**\n' +
+  '• 简历分析：评估候选人与职位的匹配度，识别关键技能和经验\n' +
+  '• 招聘咨询：提供人才招聘策略、面试技巧、薪资建议等专业意见\n' +
+  '• 沟通辅助：帮助撰写招聘邮件、面试邀请、offer谈判等沟通内容\n' +
+  '• 筛选建议：根据JD要求制定候选人筛选标准和评估维度\n\n' +
+  '**交互原则：**\n' +
+  '• 回答简洁专业，重点突出\n' +
+  '• 提供具体可执行的建议\n' +
+  '• 如需更多信息才能准确答复，主动询问\n' +
+  '• 保持客观中立，基于专业判断\n\n' +
+  '现在请问有什么可以帮助你的招聘工作？';
 
 /**
  * 创建AI聊天存储
@@ -111,6 +123,57 @@ export function createAIChatStore(adapter: StorageAdapter<any>) {
             
             // 调用AI服务
             const response = await client.sendMessage(allMessages);
+            
+            // 创建助手消息
+            const assistantMessage: Message = {
+              role: MessageRole.ASSISTANT,
+              content: response
+            };
+            
+            // 更新状态
+            set({
+              messages: [...get().messages, assistantMessage],
+              isLoading: false
+            });
+            
+            return response;
+          } catch (error) {
+            console.error('AI聊天失败:', error);
+            set({ isLoading: false });
+            throw error;
+          }
+        },
+        
+        // 发送流式消息
+        sendMessageStream: async (content, onChunk) => {
+          // 创建或更新客户端
+          if (!client) {
+            client = new AIServiceClient(get().config);
+          }
+          
+          // 创建用户消息
+          const userMessage: Message = {
+            role: MessageRole.USER,
+            content
+          };
+          
+          // 更新状态
+          set({ 
+            messages: [...get().messages, userMessage],
+            isLoading: true 
+          });
+          
+          try {
+            // 准备完整的消息历史
+            const allMessages = get().messages.length === 0
+              ? [
+                  { role: MessageRole.SYSTEM, content: DEFAULT_SYSTEM_PROMPT },
+                  userMessage
+                ]
+              : [...get().messages];
+            
+            // 调用AI服务
+            const response = await client.sendMessageStream(allMessages, onChunk);
             
             // 创建助手消息
             const assistantMessage: Message = {

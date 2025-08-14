@@ -7,9 +7,10 @@ import random
 import asyncio
 import re
 
-from automation.processors.data_extractor import DataExtractor
+from automation.processors.enhanced_data_extractor import EnhancedDataExtractor
 from automation.processors.card_extractor import CardExtractor
 from automation.processors.evaluation_helper import EvaluationHelper
+from automation.utils.debug_logger import DebugLogger
 
 class ResumeCardProcessor:
     """简历卡片处理器，处理单个简历卡片相关功能"""
@@ -22,6 +23,7 @@ class ResumeCardProcessor:
             resume_processor: 父简历处理器对象
         """
         self.processor = resume_processor
+        self.enhanced_extractor = EnhancedDataExtractor()
         
     async def process_resume_card(self, page, card, config):
         """
@@ -61,52 +63,36 @@ class ResumeCardProcessor:
                 print(f"卡片 {card_id} 已处理过，跳过")
                 return False
                 
-            # 从卡片提取简历数据
-            data_extractor = DataExtractor()
+            # 使用增强数据提取器从卡片提取简历数据
+            print(f"🔍 使用增强提取器处理卡片 {card_id}...")
+            
+            # 获取卡片的完整文本内容
+            card_text = await card.text_content()
+            if not card_text:
+                print(f"卡片 {card_id} 无文本内容，跳过")
+                return False
+            
+            # 使用增强提取器处理卡片文本
             resume_data = {}
+            cleaned_text = self.enhanced_extractor._clean_text(card_text)
             
-            # 确定卡片元素的选择器
-            card_selector = None
-            if card_id:
-                # 尝试构建精确的选择器
-                for attr in ['data-id', 'id', 'data-geek', 'data-uid', 'data-index']:
-                    attr_value = await card.get_attribute(attr)
-                    if attr_value:
-                        card_selector = f'[{attr}="{attr_value}"]'
-                        break
+            # 提取各种信息
+            resume_data['name'] = self.enhanced_extractor._extract_name(cleaned_text)
+            resume_data['education'] = self.enhanced_extractor._extract_education(cleaned_text)
+            resume_data['position'] = self.enhanced_extractor._extract_position(cleaned_text)
+            resume_data['company'] = self.enhanced_extractor._extract_companies(cleaned_text)
+            resume_data['schools'] = self.enhanced_extractor._extract_schools(cleaned_text)
+            resume_data['skills'] = self.enhanced_extractor._extract_skills(cleaned_text)
+            resume_data['experience'] = self.enhanced_extractor._extract_experience(cleaned_text)
+            resume_data['phone'] = self.enhanced_extractor._extract_phone(cleaned_text)
+            resume_data['email'] = self.enhanced_extractor._extract_email(cleaned_text)
+            resume_data['fullText'] = cleaned_text
             
-            if not card_selector:
-                # 打印警告并尝试构建相对选择器
-                print("无法构建精确的卡片选择器，将使用卡片元素直接提取数据")
-            
-            # 提取卡片数据 - 只用于阶段1和阶段2的筛选
-            if card_selector:
-                resume_data = await data_extractor.extract_resume_card_data(page, card_selector, self.processor.selectors)
-                print("\n===== 通过选择器提取到的卡片数据 =====")
-            else:
-                # 直接从卡片元素提取数据，不依赖选择器
-                resume_data = await CardExtractor.extract_data_from_card_element(card)
-                print("\n===== 直接从元素提取到的卡片数据 =====")
+            print(f"✅ 增强提取完成: 姓名={resume_data.get('name')}, 学历={resume_data.get('education')}, 职位={resume_data.get('position')}")
                 
             if not resume_data:
                 print(f"未能从卡片提取数据，跳过")
                 return False
-                
-            # 检查职位字段是否有效，如果不是有效的职位信息，尝试从完整文本中提取
-            if not resume_data.get('position') or re.search(r'^\d+岁|\d+年|离职|在职|本科|大专|硕士', resume_data.get('position', '')):
-                print(f"职位信息已清理: \"{resume_data.get('position', '')}\" -> \"\"")
-                resume_data['position'] = ""  # 清除无效的职位信息
-                
-                # 尝试从完整文本中提取职位信息
-                if resume_data.get('fullText'):
-                    # 尝试查找"期望："后面的文本作为职位
-                    position_match = re.search(r'期望：\s*([^\n\r]+)', resume_data.get('fullText'))
-                    if position_match:
-                        position_text = position_match.group(1).strip()
-                        # 再次清理提取的文本，确保是有效的职位信息
-                        if not re.search(r'^\d+岁|\d+年|离职|在职|本科|大专|硕士', position_text):
-                            resume_data['position'] = position_text
-                            print(f"从全文中提取到职位信息: {position_text}")
                 
             # 打印完整的提取结果，方便调试
             print(f"提取结果 - 卡片ID: {card_id}")
@@ -116,6 +102,7 @@ class ResumeCardProcessor:
             print(f"教育: {resume_data.get('education', '未提取')}")
             print(f"学校: {resume_data.get('schools', '未提取')}")
             print(f"技能: {resume_data.get('skills', '未提取')}")
+            print(f"工作经验: {resume_data.get('experience', 0)}年")
             if resume_data.get('fullText'):
                 print(f"完整文本预览: {resume_data.get('fullText', '')[:100]}...")
             print("=====================================\n")
@@ -149,7 +136,7 @@ class ResumeCardProcessor:
                 )
                 
                 if greet_button:
-                    success = await self.processor.interaction_handler.greet_candidate(greet_button, resume_data)
+                    success = await self.processor.interaction_handler.greet_candidate(greet_button, resume_data, page)
                     self.processor.processed_ids.add(card_id)
                     # 记录打招呼的候选人
                     self.processor.log_candidate(resume_data, "greet", "来自竞对公司")
@@ -215,19 +202,104 @@ class ResumeCardProcessor:
                         await page.keyboard.press('Enter')
                         print(f"已使用hover+Enter方式尝试进入详情页")
                 
-                # 等待详情页加载
-                await asyncio.sleep(2)
+                # 等待详情页加载（优化：减少到2秒）
+                await asyncio.sleep(2)  # 优化：从5秒减少到2秒，加快处理速度
+                
+                # 首先尝试直接检查当前页面是否是详情页
+                current_url = page.url
+                print(f"点击后当前页面URL: {current_url}")
+                
+                # 检查是否有详情页内容（BOSS直聘的简历详情结构）
+                detail_content_found = False
+                try:
+                    # 首先检查是否有弹窗形式的详情页（BOSS直聘常见形式）
+                    dialog_selectors = [
+                        '.dialog-wrap',
+                        '.modal',
+                        '.popup',
+                        '[data-type="boss-dialog"]',
+                        '.ka-dialog',
+                        '.ui-dialog',
+                        '.layui-layer',
+                        '.dialog'
+                    ]
+                    
+                    for dialog_selector in dialog_selectors:
+                        try:
+                            dialog = await page.wait_for_selector(dialog_selector, timeout=2000)
+                            if dialog:
+                                is_visible = await dialog.is_visible()
+                                if is_visible:
+                                    print(f"✅ 检测到弹窗详情页: {dialog_selector}")
+                                    
+                                    # 在弹窗内检查是否有简历内容
+                                    resume_content = await dialog.query_selector('.resume-detail-wrap, [data-v-bcc3a4cc], .geek-base-info-wrap, .geek-expect-wrap, .geek-work-experience-wrap')
+                                    if resume_content:
+                                        print(f"✅ 在弹窗中找到简历详情内容")
+                                        detail_content_found = True
+                                        break
+                        except Exception:
+                            continue
+                    
+                    # 如果没有找到弹窗，检查主页面的详情页元素
+                    if not detail_content_found:
+                        detail_selectors = [
+                            '.resume-detail-wrap',
+                            '[data-v-bcc3a4cc]',
+                            '.geek-base-info-wrap',
+                            '.geek-expect-wrap',
+                            '.geek-work-experience-wrap'
+                        ]
+                        
+                        for selector in detail_selectors:
+                            try:
+                                element = await page.wait_for_selector(selector, timeout=3000)
+                                if element:
+                                    print(f"✅ 在页面中检测到详情页内容: {selector}")
+                                    detail_content_found = True
+                                    break
+                            except Exception:
+                                continue
+                    
+                    if detail_content_found:
+                        print("🎯 检测到详情页内容，直接处理详情页")
+                        # 调用详情页处理方法
+                        detail_processed = await self.processor.process_detail_page(page, config, resume_data)
+                        
+                        # 优化：减少等待详情页处理完成的时间
+                        max_wait = 8  # 优化：从15秒减少到8秒
+                        wait_count = 0
+                        while self.processor.detail_processor.processing_detail and wait_count < max_wait:
+                            print(f"⏳ 等待最终详情页处理完成... ({wait_count}/{max_wait}秒)")
+                            await asyncio.sleep(0.5)  # 优化：检查间隔从1秒改为0.5秒
+                            wait_count += 0.5
+                        
+                        if wait_count >= max_wait:
+                            print("⚠️ 等待最终详情页处理超时（15秒），强制继续")
+                        else:
+                            print(f"✅ 最终详情页处理已完成，用时 {wait_count} 秒")
+                        
+                        # 标记为已处理
+                        self.processor.processed_ids.add(card_id)
+                        return True
+                        
+                except Exception as e:
+                    print(f"检测详情页内容时出错: {e}")
+                
+                # 如果没有找到详情页内容，检查iframe
+                print("🔍 未在主页面找到详情页内容，检查iframe...")
                 
                 # 检查详情页iframe
                 detail_iframe = None
                 try:
                     # 尝试查找简历详情iframe
                     iframe_selectors = [
-                        'iframe[src*="c-resume"]',
+                        'iframe[name="recommendFrame"]',
+                        'iframe[src*="frame/recommend"]',
+                        'iframe[data-v-16429d95]',
+                        'iframe[src*="recommend"]',
                         'iframe[src*="resumeDetail"]',
                         'iframe[src*="detail"]',
-                        'iframe[src*="frame/c-resume"]',
-                        'iframe[src^="https://www.zhipin.com/web/frame/c-resume"]',
                         'iframe'
                     ]
                     
@@ -271,18 +343,18 @@ class ResumeCardProcessor:
                                 # 直接调用处理详情页iframe的方法
                                 detail_processed = await self.processor.process_detail_page_iframe(detail_iframe, page, config, resume_data)
                                 
-                                # 等待详情页处理完成（检查OCR是否完成）
-                                max_wait = 5  # 最长等待5秒，从60秒降低为5秒
+                                # 优化：减少等待详情页处理完成的时间
+                                max_wait = 8  # 优化：从15秒减少到8秒
                                 wait_count = 0
                                 while self.processor.detail_processor.processing_detail and wait_count < max_wait:
-                                    print(f"⏳ 等待详情页处理完成... ({wait_count}/{max_wait}秒)")
-                                    await asyncio.sleep(1)
-                                    wait_count += 1
+                                    print(f"⏳ 等待iframe详情页处理完成... ({wait_count}/{max_wait}秒)")
+                                    await asyncio.sleep(0.5)  # 优化：检查间隔从1秒改为0.5秒
+                                    wait_count += 0.5
                                 
                                 if wait_count >= max_wait:
-                                    print("⚠️ 等待详情页处理超时（5秒），强制继续")
+                                    print("⚠️ 等待iframe详情页处理超时（15秒），强制继续")
                                 else:
-                                    print(f"✅ 详情页处理已完成，用时 {wait_count} 秒")
+                                    print(f"✅ iframe详情页处理已完成，用时 {wait_count} 秒")
                                 
                                 # 标记为已处理
                                 self.processor.processed_ids.add(card_id)
@@ -292,36 +364,45 @@ class ResumeCardProcessor:
                 
                 # 提取详情页URL，检查是否成功跳转
                 current_url = page.url
-                if "detail" not in current_url and "resumeDetail" not in current_url:
-                    # 再次尝试检查iframe
+                # BOSS直聘的详情页URL通常包含recommend或detail
+                if "recommend" in current_url or "detail" in current_url or "resumeDetail" in current_url:
+                    print(f"✅ 检测到BOSS直聘详情页URL: {current_url}")
+                    # 再次尝试检查iframe中的内容
                     try:
                         all_frames = page.frames
-                        for frame in all_frames:
-                            frame_url = frame.url
-                            if "c-resume" in frame_url or "detail" in frame_url:
-                                print(f"在frame中找到详情页URL: {frame_url}")
-                                # 使用找到的frame处理详情页
-                                detail_processed = await self.processor.process_detail_page_iframe(frame, page, config, resume_data)
-                                
-                                # 等待详情页处理完成（检查OCR是否完成）
-                                max_wait = 5  # 最长等待5秒，从60秒降低为5秒
-                                wait_count = 0
-                                while self.processor.detail_processor.processing_detail and wait_count < max_wait:
-                                    print(f"⏳ 等待详情页处理完成... ({wait_count}/{max_wait}秒)")
-                                    await asyncio.sleep(1)
-                                    wait_count += 1
-                                
-                                if wait_count >= max_wait:
-                                    print("⚠️ 等待详情页处理超时（5秒），强制继续")
-                                else:
-                                    print(f"✅ 详情页处理已完成，用时 {wait_count} 秒")
-                                
-                                # 标记为已处理
-                                self.processor.processed_ids.add(card_id)
-                                return True
+                        print(f"🔍 检查到 {len(all_frames)} 个frame")
+                        for i, frame in enumerate(all_frames):
+                            try:
+                                frame_url = frame.url
+                                print(f"Frame {i}: {frame_url}")
+                                if "recommend" in frame_url or "detail" in frame_url:
+                                    print(f"在frame中找到详情页URL: {frame_url}")
+                                    # 使用找到的frame处理详情页
+                                    detail_processed = await self.processor.process_detail_page_iframe(frame, page, config, resume_data)
+                                    
+                                    # 增加等待详情页处理完成的时间
+                                    max_wait = 15  # 从5秒增加到15秒
+                                    wait_count = 0
+                                    while self.processor.detail_processor.processing_detail and wait_count < max_wait:
+                                        print(f"⏳ 等待frame详情页处理完成... ({wait_count}/{max_wait}秒)")
+                                        await asyncio.sleep(1)
+                                        wait_count += 1
+                                    
+                                    if wait_count >= max_wait:
+                                        print("⚠️ 等待frame详情页处理超时（15秒），强制继续")
+                                    else:
+                                        print(f"✅ frame详情页处理已完成，用时 {wait_count} 秒")
+                                    
+                                    # 标记为已处理
+                                    self.processor.processed_ids.add(card_id)
+                                    return True
+                            except Exception as frame_error:
+                                print(f"检查frame {i} 时出错: {frame_error}")
+                                continue
                     except Exception as e:
                         print(f"检查所有frames时出错: {e}")
-                        
+                else:
+                    print(f"URL未包含详情页特征: {current_url}")
                     print("点击卡片后未能正确跳转到详情页")
                     self.processor.processed_ids.add(card_id)
                     return False
@@ -330,18 +411,18 @@ class ResumeCardProcessor:
                 print("调用详情页处理方法")
                 detail_processed = await self.processor.process_detail_page(page, config, resume_data)
                 
-                # 等待详情页处理完成（检查OCR是否完成）
-                max_wait = 5  # 最长等待5秒，从60秒降低为5秒
+                # 增加等待详情页处理完成的时间
+                max_wait = 15  # 从5秒增加到15秒
                 wait_count = 0
                 while self.processor.detail_processor.processing_detail and wait_count < max_wait:
-                    print(f"⏳ 等待详情页处理完成... ({wait_count}/{max_wait}秒)")
+                    print(f"⏳ 等待最终详情页处理完成... ({wait_count}/{max_wait}秒)")
                     await asyncio.sleep(1)
                     wait_count += 1
                 
                 if wait_count >= max_wait:
-                    print("⚠️ 等待详情页处理超时（5秒），强制继续")
+                    print("⚠️ 等待最终详情页处理超时（15秒），强制继续")
                 else:
-                    print(f"✅ 详情页处理已完成，用时 {wait_count} 秒")
+                    print(f"✅ 最终详情页处理已完成，用时 {wait_count} 秒")
                 
                 # 标记为已处理
                 self.processor.processed_ids.add(card_id)

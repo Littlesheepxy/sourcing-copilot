@@ -345,6 +345,28 @@ const SimpleRuleEditor = ({ initialConfig = null, onSave }) => {
     }
   }, [initialConfig]);
   
+  // 自动保存功能 - 当配置变化时自动保存
+  useEffect(() => {
+    // 防抖保存，避免频繁保存
+    const autoSaveTimer = setTimeout(async () => {
+      // 检查是否有规则需要保存
+      if (config.rules.length > 0 || config.autoMode !== false) {
+        try {
+          console.log('🔄 自动保存卡片规则配置...');
+          
+          // 调用父组件的保存函数
+          if (onSave) {
+            onSave(config);
+          }
+        } catch (error) {
+          console.log('⚠️ 卡片规则自动保存失败:', error);
+        }
+      }
+    }, 2000); // 2秒防抖
+
+    return () => clearTimeout(autoSaveTimer);
+  }, [config, onSave]);
+  
   // 确保所有规则都有顺序属性
   useEffect(() => {
     const ensureRulesHaveOrder = () => {

@@ -32,7 +32,7 @@ class CandidateRepository:
         source_id: Optional[str] = None,
         raw_data: Optional[Dict[str, Any]] = None,
         **kwargs
-    ) -> Candidate:
+    ) -> str:
         """创建新的候选人
         
         Args:
@@ -50,7 +50,7 @@ class CandidateRepository:
             **kwargs: 其他候选人属性
             
         Returns:
-            Candidate: 创建的候选人对象
+            str: 创建的候选人ID
         """
         with get_db_session() as session:
             # 生成候选人ID
@@ -92,7 +92,9 @@ class CandidateRepository:
                     )
                     session.add(candidate_skill)
             
-            return candidate
+            # 提交事务并返回ID
+            session.commit()
+            return candidate_id
     
     @staticmethod
     def get_candidate_by_id(candidate_id: str) -> Optional[Candidate]:
@@ -125,8 +127,8 @@ class CandidateRepository:
         tags: Optional[List[str]] = None,
         skills: Optional[List[str]] = None,
         min_match_score: Optional[int] = None
-    ) -> List[Candidate]:
-        """获取候选人列表
+    ) -> List[Dict[str, Any]]:
+        """获取候选人列表，返回字典格式避免Session问题
         
         Args:
             limit: 限制条数
@@ -138,13 +140,16 @@ class CandidateRepository:
             min_match_score: 最低匹配分数
             
         Returns:
-            List[Candidate]: 候选人列表
+            List[Dict[str, Any]]: 候选人字典列表
         """
         with get_db_session() as session:
             query = session.query(Candidate)\
                 .options(
                     joinedload(Candidate.skills).joinedload(CandidateSkill.skill),
-                    joinedload(Candidate.tags)
+                    joinedload(Candidate.tags),
+                    joinedload(Candidate.work_experiences),
+                    joinedload(Candidate.educations),
+                    joinedload(Candidate.projects)
                 )
             
             # 应用过滤条件
@@ -172,8 +177,47 @@ class CandidateRepository:
             if min_match_score is not None:
                 query = query.filter(Candidate.match_score >= min_match_score)
             
-            # 按创建时间降序排序并分页
-            return query.order_by(desc(Candidate.created_at)).offset(offset).limit(limit).all()
+            # 执行查询并在Session内转换为字典
+            candidates = query.order_by(desc(Candidate.created_at)).offset(offset).limit(limit).all()
+            
+            # 在Session内转换为字典格式
+            candidates_data = []
+            for candidate in candidates:
+                # 处理技能数据
+                skills_list = []
+                if candidate.skills:
+                    for candidate_skill in candidate.skills:
+                        if candidate_skill.skill:
+                            skills_list.append(candidate_skill.skill.name)
+                
+                # 处理标签数据
+                tags_list = []
+                if candidate.tags:
+                    for tag in candidate.tags:
+                        tags_list.append(tag.name)
+                
+                candidate_dict = {
+                    "id": candidate.id,
+                    "name": candidate.name or "",
+                    "education": candidate.education or "",
+                    "experience": candidate.experience or "",
+                    "skills": skills_list,
+                    "company": candidate.company or "",
+                    "school": candidate.school or "",
+                    "position": candidate.position or "",
+                    "status": candidate.status.value if candidate.status else "new",
+                    "createdAt": candidate.created_at.isoformat() if candidate.created_at else "",
+                    "updatedAt": candidate.updated_at.isoformat() if candidate.updated_at else "",
+                    "matchScore": candidate.match_score,
+                    "greeting": candidate.greeting or "",
+                    "tags": tags_list,
+                    "source": candidate.source or "",
+                    "sourceId": candidate.source_id or "",
+                    "raw_data": candidate.raw_data or {}
+                }
+                candidates_data.append(candidate_dict)
+            
+            return candidates_data
     
     @staticmethod
     def count_candidates(

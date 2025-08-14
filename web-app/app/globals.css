@@ -289,4 +289,206 @@ input:focus, select:focus, textarea:focus {
     rgba(255, 255, 255, 0.1) 60%,
     rgba(255, 255, 255, 0)
   );
+}
+
+/* Driver.js 自定义样式 */
+.driver-popover {
+  background: white !important;
+  border-radius: 12px !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+  border: 1px solid #e5e7eb !important;
+}
+
+.driver-popover-title {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  color: #1f2937 !important;
+  margin-bottom: 8px !important;
+}
+
+.driver-popover-description {
+  font-size: 14px !important;
+  color: #6b7280 !important;
+  line-height: 1.5 !important;
+  margin-bottom: 16px !important;
+}
+
+.driver-popover-footer {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+.driver-popover-next-btn,
+.driver-popover-prev-btn,
+.driver-popover-close-btn {
+  padding: 8px 16px !important;
+  border-radius: 6px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.driver-popover-next-btn {
+  background: #3b82f6 !important;
+  color: white !important;
+}
+
+.driver-popover-next-btn:hover {
+  background: #2563eb !important;
+}
+
+.driver-popover-prev-btn {
+  background: #f3f4f6 !important;
+  color: #374151 !important;
+}
+
+.driver-popover-prev-btn:hover {
+  background: #e5e7eb !important;
+}
+
+.driver-popover-close-btn {
+  background: transparent !important;
+  color: #6b7280 !important;
+  padding: 2px !important;
+  border-radius: 4px !important;
+  font-size: 12px !important;
+  width: 20px !important;
+  height: 20px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.driver-popover-close-btn:hover {
+  background: #f3f4f6 !important;
+  color: #374151 !important;
+}
+
+.driver-popover-progress-text {
+  font-size: 12px !important;
+  color: #9ca3af !important;
+  margin: 0 !important;
+}
+
+/* 高亮区域样式 */
+.driver-highlighted-element {
+  border-radius: 8px !important;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3) !important;
+}
+
+/* 遮罩层样式 */
+.driver-overlay {
+  background: rgba(0, 0, 0, 0.5) !important;
+}
+
+/* 响应式调整 */
+@media (max-width: 640px) {
+  .driver-popover {
+    max-width: 280px !important;
+    margin: 10px !important;
+  }
+  
+  .driver-popover-title {
+    font-size: 16px !important;
+  }
+  
+  .driver-popover-description {
+    font-size: 13px !important;
+  }
+  
+  .driver-popover-footer {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  
+  .driver-popover-next-btn,
+  .driver-popover-prev-btn {
+    width: 100% !important;
+  }
+  
+  .driver-popover-close-btn {
+    width: 18px !important;
+    height: 18px !important;
+    font-size: 10px !important;
+    padding: 1px !important;
+  }
+}
+
+/* Markdown渲染样式优化 */
+.markdown-content {
+  @apply text-gray-700 dark:text-gray-300;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+  @apply text-gray-900 dark:text-white font-semibold;
+}
+
+.markdown-content p {
+  @apply mb-3 leading-relaxed;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  @apply mb-3 pl-6;
+}
+
+.markdown-content ul {
+  list-style-type: disc;
+  list-style-position: outside;
+}
+
+.markdown-content ol {
+  list-style-type: decimal;
+  list-style-position: outside;
+}
+
+.markdown-content li {
+  @apply mb-1 leading-relaxed;
+  display: list-item;
+}
+
+.markdown-content code {
+  @apply bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-sm font-mono;
+}
+
+.markdown-content pre {
+  @apply my-3 rounded-lg overflow-x-auto;
+}
+
+.markdown-content pre code {
+  @apply bg-transparent p-0;
+}
+
+.markdown-content blockquote {
+  @apply border-l-4 border-blue-500 pl-4 my-3 italic bg-blue-50 dark:bg-blue-900/20 py-2 rounded-r;
+}
+
+.markdown-content table {
+  @apply w-full border-collapse border border-gray-200 dark:border-gray-700 my-3;
+}
+
+.markdown-content th,
+.markdown-content td {
+  @apply border border-gray-200 dark:border-gray-700 px-3 py-2;
+}
+
+.markdown-content th {
+  @apply bg-gray-50 dark:bg-gray-800 font-semibold;
+}
+
+.markdown-content a {
+  @apply text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline;
+}
+
+.markdown-content hr {
+  @apply my-4 border-gray-200 dark:border-gray-700;
 } 

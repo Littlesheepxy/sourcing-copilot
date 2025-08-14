@@ -9,7 +9,7 @@ import time
 import os
 import re
 
-from automation.processors.data_extractor import DataExtractor
+from automation.processors.enhanced_data_extractor import EnhancedDataExtractor
 from automation.processors.evaluation_helper import EvaluationHelper
 from automation.processors.card_extractor import CardExtractor
 from automation.processors.interaction_handler import InteractionHandler
@@ -43,13 +43,13 @@ class ResumeProcessor:
         self.max_process_count = 0  # 添加最大处理数量属性，0表示不限制
         self.candidates_log = []    # 添加候选人日志记录
         
-        # 设置数据提取器
+        # 设置增强数据提取器
         if data_extractor:
             self.data_extractor = data_extractor
             print("已设置数据提取器，可使用OCR提取canvas和图片格式简历")
         else:
-            self.data_extractor = DataExtractor()
-            print("已创建默认数据提取器")
+            self.data_extractor = EnhancedDataExtractor()
+            print("已创建增强数据提取器")
             
         # 确保日志目录存在
         self.log_dir = os.path.expanduser("~/Library/Application Support/SourcingCopilot/logs")
@@ -73,34 +73,71 @@ class ResumeProcessor:
         try:
             config = self.browser._load_config()
             
-            # 提取岗位关键词
-            position_rules = [r for r in config.get("rules", []) if r.get("type") == "岗位" and r.get("enabled")]
-            position_keywords = []
-            for rule in position_rules:
-                position_keywords.extend(rule.get("keywords", []))
+            # 检查是否启用了AI智能筛选
+            ai_enabled = config.get("aiEnabled", False)
+            job_description = config.get("jobDescription", "")
+            talent_profile = config.get("talentProfile", "")
+            filter_criteria = config.get("filterCriteria", "")
+            pass_score = config.get("passScore", 70)
             
-            # 提取竞对公司关键词
-            company_rules = [r for r in config.get("rules", []) if r.get("type") == "公司" and r.get("enabled")]
-            company_keywords = []
-            for rule in company_rules:
-                company_keywords.extend(rule.get("keywords", []))
-            
-            # 提取岗位核心关键词
-            keyword_rules = [r for r in config.get("rules", []) if r.get("type") == "岗位核心关键词" and r.get("enabled")]
-            keywords = []
-            pass_score = 60
-            if keyword_rules:
-                pass_score = keyword_rules[0].get("passScore", 60)
-                for rule in keyword_rules:
-                    keywords.extend(rule.get("keywords", []))
-            
-            # 打印规则配置摘要
             print("\n===== 当前规则配置 =====")
-            print(f"🔍 期望职位: {', '.join(position_keywords)}")
-            print(f"🏢 竞对公司: {', '.join(company_keywords)}")
-            print(f"📝 关键词评分阈值: {pass_score}")
-            print(f"📝 关键词: {', '.join(keywords)}")
-            print("规则逻辑: 期望职位不匹配直接淘汰，期望职位匹配且是竞对公司直接打招呼，否则查看详情页进行关键词评分")
+            
+            if ai_enabled or job_description or talent_profile or filter_criteria:
+                # AI智能筛选模式
+                print("🤖 筛选模式: AI智能筛选")
+                print(f"📊 通过分数阈值: {pass_score}")
+                
+                if filter_criteria:
+                    print(f"🎯 AI智能筛选标准: 已配置 ({len(filter_criteria)} 字符)")
+                    # 显示前100个字符作为预览
+                    preview = filter_criteria[:100] + "..." if len(filter_criteria) > 100 else filter_criteria
+                    print(f"   预览: {preview}")
+                
+                if job_description:
+                    print(f"📋 职位描述: 已配置 ({len(job_description)} 字符)")
+                    # 显示前100个字符作为预览
+                    preview = job_description[:100] + "..." if len(job_description) > 100 else job_description
+                    print(f"   预览: {preview}")
+                
+                if talent_profile:
+                    print(f"👤 人才画像: 已配置 ({len(talent_profile)} 字符)")
+                    # 显示前100个字符作为预览
+                    preview = talent_profile[:100] + "..." if len(talent_profile) > 100 else talent_profile
+                    print(f"   预览: {preview}")
+                
+                print("🔄 筛选逻辑: 使用AI大模型综合评估候选人与岗位匹配度")
+                
+            else:
+                # 传统简单规则模式
+                print("📝 筛选模式: 传统简单规则")
+                
+                # 提取岗位关键词
+                position_rules = [r for r in config.get("rules", []) if r.get("type") == "岗位" and r.get("enabled")]
+                position_keywords = []
+                for rule in position_rules:
+                    position_keywords.extend(rule.get("keywords", []))
+                
+                # 提取竞对公司关键词
+                company_rules = [r for r in config.get("rules", []) if r.get("type") == "公司" and r.get("enabled")]
+                company_keywords = []
+                for rule in company_rules:
+                    company_keywords.extend(rule.get("keywords", []))
+                
+                # 提取岗位核心关键词
+                keyword_rules = [r for r in config.get("rules", []) if r.get("type") == "岗位核心关键词" and r.get("enabled")]
+                keywords = []
+                keyword_pass_score = 60
+                if keyword_rules:
+                    keyword_pass_score = keyword_rules[0].get("passScore", 60)
+                    for rule in keyword_rules:
+                        keywords.extend(rule.get("keywords", []))
+                
+                print(f"🔍 期望职位: {', '.join(position_keywords) if position_keywords else '未配置'}")
+                print(f"🏢 竞对公司: {', '.join(company_keywords) if company_keywords else '未配置'}")
+                print(f"📝 关键词评分阈值: {keyword_pass_score}")
+                print(f"📝 关键词: {', '.join(keywords) if keywords else '未配置'}")
+                print("🔄 筛选逻辑: 期望职位不匹配直接淘汰，期望职位匹配且是竞对公司直接打招呼，否则查看详情页进行关键词评分")
+            
             print("=========================\n")
             
         except Exception as e:
@@ -153,9 +190,9 @@ class ResumeProcessor:
         """获取候选人日志"""
         return self.logging_helper.get_candidates_log()
     
-    def log_candidate(self, candidate_data, action, reason=""):
+    def log_candidate(self, candidate_data, action, reason="", ai_evaluation=None):
         """记录候选人处理信息"""
-        return self.logging_helper.log_candidate(candidate_data, action, reason)
+        return self.logging_helper.log_candidate(candidate_data, action, reason, ai_evaluation)
 
     def set_debug_level(self, level):
         """设置调试日志级别"""

@@ -73,9 +73,12 @@ class PageDetector:
         # 检查页面中的所有iframe
         try:
             iframe_selectors = [
-                'iframe[src*="zhipin"]', 
-                'iframe[src*="boss"]',
+                'iframe[name="recommendFrame"]',
+                'iframe[src*="frame/recommend"]',
+                'iframe[data-v-16429d95]',
                 'iframe[src*="recommend"]',
+                'iframe[src*="zhipin"]',
+                'iframe[src*="boss"]',
                 'iframe'
             ]
             

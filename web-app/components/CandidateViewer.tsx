@@ -218,9 +218,9 @@ export default function CandidateViewer() {
       case 'new': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
       case 'processing': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
       case 'contacted': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
-      case 'hired': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
       case 'rejected': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
+      case 'hired': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
     }
   };
   
@@ -228,10 +228,10 @@ export default function CandidateViewer() {
   const getStatusText = (status?: string) => {
     switch (status) {
       case 'new': return '新候选人';
-      case 'processing': return '处理中';
+      case 'processing': return '跟进中';
       case 'contacted': return '已联系';
+      case 'rejected': return '已淘汰';
       case 'hired': return '已录用';
-      case 'rejected': return '已拒绝';
       default: return '未知状态';
     }
   };
@@ -306,12 +306,61 @@ export default function CandidateViewer() {
               </div>
               
               <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
-                <p><span className="font-medium">教育背景:</span> {candidate.education}</p>
-                <p><span className="font-medium">经验:</span> {candidate.experience}</p>
-                <p><span className="font-medium">公司:</span> {candidate.company || "未知"}</p>
-                <p><span className="font-medium">学校:</span> {candidate.school || "未知"}</p>
-                <p><span className="font-medium">职位:</span> {candidate.position || "未知"}</p>
+                <div className="grid grid-cols-2 gap-x-4">
+                  <div>
+                    <span className="font-medium text-gray-700 dark:text-gray-300">期望职位:</span>
+                    <p className="text-gray-900 dark:text-white mt-1 line-clamp-2">
+                      {candidate.position || "未填写"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-700 dark:text-gray-300">学历:</span>
+                    <p className="text-gray-900 dark:text-white mt-1">
+                      {candidate.education || "未填写"}
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-700 dark:text-gray-300">当前/上一家公司:</span>
+                  <p className="text-gray-900 dark:text-white mt-1 line-clamp-2">
+                    {candidate.company || "未填写"}
+                  </p>
+                </div>
               </div>
+              
+              {/* AI评估结果 */}
+              {candidate.raw_data?.ai_evaluation ? (
+                <div className="mt-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-semibold text-blue-800 dark:text-blue-300">🤖 AI智能评估</h4>
+                    <div className="flex items-center space-x-2">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                        candidate.raw_data.ai_evaluation.passed 
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                          : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                      }`}>
+                        {candidate.raw_data.ai_evaluation.passed ? '✅ 通过' : '❌ 不通过'}
+                      </span>
+                      {candidate.raw_data.ai_evaluation.score !== undefined && (
+                        <span className="text-sm font-bold text-blue-700 dark:text-blue-300 bg-white dark:bg-gray-800 px-2 py-1 rounded">
+                          {candidate.raw_data.ai_evaluation.score}分
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {(candidate.raw_data.ai_evaluation.reason || candidate.raw_data.ai_evaluation.rejectReason) && (
+                    <p className="text-xs text-blue-700 dark:text-blue-300 line-clamp-3 bg-white dark:bg-gray-800 p-2 rounded">
+                      {candidate.raw_data.ai_evaluation.reason || candidate.raw_data.ai_evaluation.rejectReason}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-center">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">暂无AI评估结果</span>
+                  </div>
+                </div>
+              )}
               
               {candidate.skills && candidate.skills.length > 0 && (
                 <div className="mt-3">
@@ -329,17 +378,46 @@ export default function CandidateViewer() {
                 </div>
               )}
               
+              {candidate.greeting && (
+                <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                  <h4 className="text-sm font-medium mb-1">打招呼语:</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+                    {candidate.greeting}
+                  </p>
+                </div>
+              )}
+              
               <div className="mt-4 text-xs text-gray-500 dark:text-gray-400">
                 {candidate.createdAt && (
                   <p>添加时间: {new Date(candidate.createdAt).toLocaleString('zh-CN')}</p>
                 )}
               </div>
               
-              <button
-                className="mt-4 w-full px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded text-sm font-medium transition-colors"
-              >
-                查看详情
-              </button>
+              <div className="mt-4 flex space-x-2">
+                <button
+                  className="flex-1 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded text-sm font-medium transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    viewCandidateDetail(candidate);
+                  }}
+                >
+                  查看详情
+                </button>
+                <button
+                  className={`flex-1 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                    candidate.status === 'contacted' 
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                      : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const newStatus = candidate.status === 'contacted' ? 'processing' : 'contacted';
+                    updateCandidateStatus(candidate, newStatus);
+                  }}
+                >
+                  {candidate.status === 'contacted' ? '已打招呼' : '标记已打招呼'}
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -368,6 +446,66 @@ export default function CandidateViewer() {
             </div>
             
             <div className="space-y-6">
+              {/* AI评估结果 */}
+              {selectedCandidate.raw_data?.ai_evaluation && (
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-lg font-semibold text-blue-800 dark:text-blue-300">🤖 AI智能评估</h4>
+                    <div className="flex items-center space-x-3">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                        selectedCandidate.raw_data.ai_evaluation.passed 
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                          : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                      }`}>
+                        {selectedCandidate.raw_data.ai_evaluation.passed ? '✅ 通过' : '❌ 不通过'}
+                      </span>
+                      {selectedCandidate.raw_data.ai_evaluation.score !== undefined && (
+                        <span className="text-lg font-bold text-blue-700 dark:text-blue-300">
+                          {selectedCandidate.raw_data.ai_evaluation.score}分
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {selectedCandidate.raw_data.ai_evaluation.reason && (
+                    <div className="mb-3">
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">评估原因</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 p-2 rounded">
+                        {selectedCandidate.raw_data.ai_evaluation.reason}
+                      </p>
+                    </div>
+                  )}
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {selectedCandidate.raw_data.ai_evaluation.highlights && selectedCandidate.raw_data.ai_evaluation.highlights.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium text-green-700 dark:text-green-300 mb-2">✨ 候选人优势</p>
+                        <ul className="space-y-1">
+                          {selectedCandidate.raw_data.ai_evaluation.highlights.map((highlight, index) => (
+                            <li key={index} className="text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 p-2 rounded">
+                              • {highlight}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    
+                    {selectedCandidate.raw_data.ai_evaluation.concerns && selectedCandidate.raw_data.ai_evaluation.concerns.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium text-orange-700 dark:text-orange-300 mb-2">⚠️ 关注点</p>
+                        <ul className="space-y-1">
+                          {selectedCandidate.raw_data.ai_evaluation.concerns.map((concern, index) => (
+                            <li key={index} className="text-xs text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 p-2 rounded">
+                              • {concern}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* 基本信息 */}
               <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
                 <h4 className="text-lg font-semibold mb-3">基本信息</h4>
@@ -378,11 +516,11 @@ export default function CandidateViewer() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400">教育背景</p>
-                    <p className="text-sm font-normal">{selectedCandidate.education}</p>
+                    <p className="text-sm font-normal">{selectedCandidate.education || "未知"}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400">工作经验</p>
-                    <p className="text-sm font-normal">{selectedCandidate.experience}</p>
+                    <p className="text-sm font-normal">{selectedCandidate.experience || "未知"}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400">当前/上一家公司</p>
@@ -395,6 +533,10 @@ export default function CandidateViewer() {
                   <div>
                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400">期望职位</p>
                     <p className="text-sm font-normal">{selectedCandidate.position || "未知"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">匹配分数</p>
+                    <p className="text-sm font-normal">{selectedCandidate.matchScore || selectedCandidate.match || "未评分"}</p>
                   </div>
                 </div>
                 

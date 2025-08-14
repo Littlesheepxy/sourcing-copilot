@@ -8,10 +8,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import CandidatesPage from '../../app/candidates/page';
 import LogsPage from '../../app/logs/page';
 import SettingsPage from '../../app/settings/page';
-// RulesPage 已弃用，不再导入
+// SimpleRulesPage 不再使用，已整合到AI智能筛选中
 import AIChatPage from '../../app/ai-chat/page';
 import Homepage from '../Homepage';
-import SimpleRulesPage from '../../app/simple-rules/page';
+import AIRulesPage from '../../app/ai-rules/page';
 
 // 动画设置
 const containerVariants = {
@@ -40,10 +40,13 @@ export default function ContentPanel() {
       case 'candidates':
         return <CandidatesPage />;
       case 'rules':
-        // 高级规则已弃用，使用简单规则页面
-        return <SimpleRulesPage />;
+        // 传统规则已弃用，重定向到AI智能筛选
+        return <AIRulesPage />;
       case 'simple-rules':
-        return <SimpleRulesPage />;
+        // 高级规则已整合到AI智能筛选，重定向到AI规则页面
+        return <AIRulesPage />;
+      case 'ai-rules':
+        return <AIRulesPage />;
       case 'logs':
         return <LogsPage />;
       case 'settings':

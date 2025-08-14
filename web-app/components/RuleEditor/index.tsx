@@ -1,6 +1,7 @@
 "use client";
 
-import SimpleRuleEditor from './SimpleRuleEditor';
+import AIFilterEditor from './AIFilterEditor';
 
-// 替换 ExtendedRuleEditor，直接使用简单规则编辑器
-export default SimpleRuleEditor; 
+// 使用AI智能筛选编辑器作为主要的规则编辑组件
+// 它集成了基本筛选条件（期望职位、竞对公司）和AI智能筛选
+export default AIFilterEditor; 

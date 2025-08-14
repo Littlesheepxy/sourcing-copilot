@@ -74,6 +74,7 @@ const AutomationStatus: React.FC<AutomationStatusProps> = ({
               ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed'
               : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200'
           }`}
+          data-guide="start-automation-button"
         >
           <Play className="h-4 w-4 mr-2" />
           启动

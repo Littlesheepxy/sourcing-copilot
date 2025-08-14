@@ -6,6 +6,12 @@
 import time
 import os
 
+# 添加数据库保存功能
+from candidate_repository import CandidateRepository
+from automation.database.models import CandidateStatus, OperationLog
+from automation.database.db import get_db_session
+from datetime import datetime
+
 class LoggingHelper:
     """日志助手类，处理日志记录和状态管理"""
     
@@ -53,14 +59,15 @@ class LoggingHelper:
             traceback.print_exc()
             return []
     
-    def log_candidate(self, candidate_data, action, reason=""):
+    def log_candidate(self, candidate_data, action, reason="", ai_evaluation=None):
         """
-        记录候选人处理信息
+        记录候选人处理信息，同时保存到数据库
         
         Args:
             candidate_data: 候选人数据
             action: 执行的操作 ('greet'|'skip')
             reason: 操作原因
+            ai_evaluation: AI评估详细结果
             
         Returns:
             bool: 是否成功记录
@@ -74,9 +81,153 @@ class LoggingHelper:
                 "company": candidate_data.get("company", []),
                 "action": action,
                 "reason": reason,
-                "link": candidate_data.get("link", "")
+                "link": candidate_data.get("link", ""),
+                # 新增调试信息
+                "has_html_content": bool(candidate_data.get("html_content")),
+                "has_full_text": bool(candidate_data.get("fullText")),
+                "is_boss_html_resume": candidate_data.get("is_boss_html_resume", False),
+                "is_using_card_data_only": candidate_data.get("is_using_card_data_only", False),
+                "text_length": len(candidate_data.get("fullText", "")) if candidate_data.get("fullText") else 0,
+                # 新增AI评估信息
+                "ai_evaluation": ai_evaluation
             }
+            
+            # 打印详细的日志信息到控制台
+            print(f"📊 候选人处理记录:")
+            print(f"   👤 姓名: {log_entry['name']}")
+            print(f"   💼 职位: {log_entry['position']}")
+            print(f"   🏢 公司: {log_entry['company']}")
+            print(f"   🎯 动作: {log_entry['action']}")
+            print(f"   📝 原因: {log_entry['reason']}")
+            print(f"   📄 数据类型: HTML={log_entry['has_html_content']}, 文本={log_entry['has_full_text']}, 长度={log_entry['text_length']}")
+            print(f"   🔗 链接: {log_entry['link']}")
+            
+            # 如果有AI评估结果，打印详细信息
+            if ai_evaluation:
+                print(f"🤖 AI评估详情:")
+                print(f"   📊 评估分数: {ai_evaluation.get('score', 'N/A')}")
+                print(f"   ✅ 是否通过: {'是' if ai_evaluation.get('passed') else '否'}")
+                print(f"   📝 评估原因: {ai_evaluation.get('reason', 'N/A')}")
+                if ai_evaluation.get('highlights'):
+                    print(f"   ✨ 候选人优势: {ai_evaluation.get('highlights')}")
+                if ai_evaluation.get('concerns'):
+                    print(f"   ⚠️ 关注点: {ai_evaluation.get('concerns')}")
+            
+            # 保存到内存日志
             self.processor.candidates_log.append(log_entry)
+            
+            candidate_id = None
+            
+            # 保存候选人数据到数据库
+            try:
+                print(f"💾 正在保存候选人数据到数据库...")
+                
+                # 处理技能数据
+                skills = []
+                if candidate_data.get("skills"):
+                    if isinstance(candidate_data["skills"], str):
+                        skills = [s.strip() for s in candidate_data["skills"].split(",") if s.strip()]
+                    elif isinstance(candidate_data["skills"], list):
+                        skills = [str(s).strip() for s in candidate_data["skills"] if str(s).strip()]
+                
+                # 处理公司数据
+                company_str = ""
+                if candidate_data.get("company"):
+                    if isinstance(candidate_data["company"], list):
+                        company_str = "; ".join([str(c) for c in candidate_data["company"] if c])
+                    else:
+                        company_str = str(candidate_data["company"])
+                
+                # 确定候选人状态
+                # 基于AI评估结果和动作来确定状态
+                if action == "greet":
+                    status = CandidateStatus.CONTACTED
+                elif ai_evaluation and not ai_evaluation.get('passed', False):
+                    # AI评估未通过的候选人标记为新候选人（未联系）
+                    status = CandidateStatus.NEW
+                else:
+                    # 其他情况也标记为新候选人
+                    status = CandidateStatus.NEW
+                
+                # 准备扩展的原始数据，包含AI评估信息
+                extended_raw_data = candidate_data.copy()
+                if ai_evaluation:
+                    extended_raw_data['ai_evaluation'] = ai_evaluation
+                
+                # 创建候选人记录并在同一个Session中获取ID
+                candidate_id = CandidateRepository.create_candidate(
+                    name=candidate_data.get("name", "未知"),
+                    education=candidate_data.get("education", ""),
+                    experience=candidate_data.get("experience", ""),
+                    skills=skills,
+                    company=company_str,
+                    school=candidate_data.get("school", ""),
+                    position=candidate_data.get("position", ""),
+                    status=status,
+                    source="Boss直聘",
+                    source_id=candidate_data.get("link", ""),
+                    raw_data=extended_raw_data,
+                    match_score=ai_evaluation.get('score') if ai_evaluation else candidate_data.get("score"),
+                    greeting=candidate_data.get("greeting", "")
+                )
+                
+                print(f"✅ 候选人 {candidate_data.get('name')} 已保存到数据库，ID: {candidate_id}")
+                
+            except Exception as db_error:
+                print(f"❌ 保存候选人到数据库失败: {db_error}")
+                import traceback
+                traceback.print_exc()
+                # 即使数据库保存失败，也不影响日志记录的成功
+            
+            # 保存操作日志到数据库
+            try:
+                print(f"📝 正在保存操作日志到数据库...")
+                
+                action_text = "打招呼" if action == "greet" else "跳过"
+                details = f"{action_text}候选人: {candidate_data.get('name', '未知')}"
+                if reason:
+                    details += f" (原因: {reason})"
+                
+                # 准备日志元数据，包含AI评估信息
+                log_metadata = {
+                    "candidate_name": candidate_data.get("name", "未知"),
+                    "candidate_position": candidate_data.get("position", "未知"),
+                    "candidate_company": company_str,
+                    "action_reason": reason,
+                    "source_url": candidate_data.get("link", "")
+                }
+                
+                # 如果有AI评估结果，添加到元数据中
+                if ai_evaluation:
+                    log_metadata["ai_evaluation"] = {
+                        "score": ai_evaluation.get('score'),
+                        "passed": ai_evaluation.get('passed'),
+                        "reason": ai_evaluation.get('reason'),
+                        "highlights": ai_evaluation.get('highlights'),
+                        "concerns": ai_evaluation.get('concerns')
+                    }
+                
+                with get_db_session() as session:
+                    db_log = OperationLog(
+                        timestamp=datetime.now(),
+                        action=action_text,
+                        details=details,
+                        data_type="candidate",
+                        data_id=candidate_id,
+                        log_metadata=log_metadata
+                    )
+                    session.add(db_log)
+                    session.flush()
+                    # 在Session内获取ID
+                    log_id = db_log.id
+                    
+                print(f"✅ 操作日志已保存到数据库，ID: {log_id}")
+                
+            except Exception as log_error:
+                print(f"❌ 保存操作日志到数据库失败: {log_error}")
+                import traceback
+                traceback.print_exc()
+                # 即使操作日志保存失败，也不影响候选人记录的成功
             
             # 如果日志过长，保留最近的100条
             if len(self.processor.candidates_log) > 100:
@@ -84,7 +235,9 @@ class LoggingHelper:
                 
             return True
         except Exception as e:
-            print(f"记录候选人日志失败: {e}")
+            print(f"❌ 记录候选人日志失败: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
     def set_debug_level(self, level):

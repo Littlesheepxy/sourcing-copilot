@@ -7,14 +7,14 @@ import { motion } from 'framer-motion';
 import { ThemeSwitcher } from '../theme/theme-switcher';
 import { 
   LayoutDashboard, 
-  MessageSquare, 
   Users, 
   ClipboardList, 
   Settings, 
   ChevronLeft, 
   ChevronRight,
   Bot,
-  Clock
+  Clock,
+  Brain
 } from 'lucide-react';
 
 // 侧边栏导航项
@@ -26,17 +26,19 @@ const navItems = [
     icon: <LayoutDashboard className="w-5 h-5" />
   },
   { 
-    name: '规则设置', 
-    module: 'simple-rules', 
-    path: '/simple-rules',
-    icon: <ClipboardList className="w-5 h-5" />
+    name: 'AI智能筛选', 
+    module: 'ai-rules', 
+    path: '/ai-rules',
+    icon: <Brain className="w-5 h-5" />,
+    highlight: true // 标记为重点功能
   },
-  { 
-    name: 'AI 对话', 
-    module: 'ai-chat', 
-    path: '/ai-chat',
-    icon: <MessageSquare className="w-5 h-5" />
-  },
+  // 暂时移除AI对话选项
+  // { 
+  //   name: 'AI 对话', 
+  //   module: 'ai-chat', 
+  //   path: '/ai-chat',
+  //   icon: <MessageSquare className="w-5 h-5" />
+  // },
   { 
     name: 'AI 助手沟通记录', 
     module: 'ai-assistant-chat', 
@@ -127,12 +129,29 @@ export default function Sidebar() {
               <button
                 onClick={() => handleNavClick(item.module)}
                 className={cn(
-                  "flex items-center w-full px-3 py-2 rounded-md text-sm font-medium transition-all duration-200",
+                  "flex items-center w-full px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 relative",
                   activeModule === item.module
-                    ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300"
-                    : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800/60"
+                    ? item.highlight 
+                      ? "bg-gradient-to-r from-purple-50 to-blue-50 text-purple-700 dark:from-purple-900/30 dark:to-blue-900/30 dark:text-purple-300"
+                      : "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300"
+                    : item.highlight
+                      ? "text-purple-600 hover:bg-gradient-to-r hover:from-purple-50 hover:to-blue-50 dark:text-purple-400 dark:hover:from-purple-900/20 dark:hover:to-blue-900/20"
+                      : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800/60"
                 )}
+                data-guide={
+                  item.module === 'ai-rules' ? 'ai-rules-nav' :
+                  item.module === 'ai-assistant-chat' ? 'ai-chat-nav' :
+                  item.module === 'settings' ? 'settings-nav' :
+                  item.module === 'candidates' ? 'candidates-nav' :
+                  item.module === 'logs' ? 'logs-nav' :
+                  undefined
+                }
               >
+                {/* AI筛选的特殊标识 */}
+                {item.highlight && (
+                  <div className="absolute -top-1 -right-1 w-2 h-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full animate-pulse"></div>
+                )}
+                
                 <motion.span 
                   className="flex-shrink-0"
                   whileHover={{ rotate: 5 }}
@@ -147,6 +166,11 @@ export default function Sidebar() {
                     className="ml-3 flex items-center"
                   >
                     {item.name}
+                    {item.highlight && (
+                      <span className="ml-2 px-1.5 py-0.5 text-xs bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full">
+                        AI
+                      </span>
+                    )}
                     {item.beta && (
                       <span className="ml-2 px-1.5 py-0.5 text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 rounded">研发中</span>
                     )}

@@ -30,68 +30,69 @@ class InteractionHandler:
             with open(self.candidates_log, "w", encoding="utf-8") as f:
                 f.write("时间,姓名,期望职位,过往公司,技能,链接\n")
     
-    async def greet_candidate(self, button, resume_data):
+    async def greet_candidate(self, button, resume_data, page=None):
         """
         向候选人打招呼
         
         Args:
             button: 打招呼按钮元素
             resume_data: 简历数据
+            page: 页面对象，如果不提供会尝试从button获取
             
         Returns:
             bool: 是否成功打招呼
         """
         try:
+            candidate_name = resume_data.get('name', '未知候选人')
+            print(f"💬 开始向候选人 {candidate_name} 打招呼...")
+            
+            # 如果没有提供page，尝试从button.page获取，但更安全的做法是要求传入
+            if page is None:
+                try:
+                    # 尝试获取page对象，但这可能会失败
+                    from playwright.async_api import ElementHandle
+                    if hasattr(button, 'page'):
+                        page = button.page
+                    else:
+                        print("❌ 无法获取页面对象，button没有page属性")
+                        return False
+                except Exception as e:
+                    print(f"❌ 获取页面对象失败: {e}")
+                    return False
+            
             # 随机延迟，模拟人工操作
-            await asyncio.sleep(random.uniform(0.8, 1.5))
+            delay = random.uniform(0.8, 1.5)
+            print(f"⏳ 模拟人工操作延迟 {delay:.1f}秒...")
+            await asyncio.sleep(delay)
             
             # 点击打招呼按钮
+            print(f"🎯 点击打招呼按钮...")
             await button.click()
-            print(f"已点击打招呼按钮")
+            print(f"✅ 已点击打招呼按钮")
             
-            # 等待对话框出现
-            await asyncio.sleep(random.uniform(1.0, 2.0))
+            # 等待操作完成，并在等待期间标记正在进行打招呼操作
+            completion_delay = random.uniform(1.0, 2.0)
+            print(f"⏳ 等待打招呼操作完成 {completion_delay:.1f}秒...")
             
-            # 构建招呼语
-            greeting = self._generate_greeting(resume_data)
+            # 分段等待，确保在等待期间不会被其他操作干扰
+            segments = 4
+            segment_delay = completion_delay / segments
+            for i in range(segments):
+                await asyncio.sleep(segment_delay)
+                # 在等待期间可以添加额外的状态检查
+                print(f"⏳ 打招呼操作进行中... ({i+1}/{segments})")
             
-            # 查找输入框并输入招呼语
-            text_area = await button.page.query_selector('.chat-editor' or 'textarea')
+            # 记录候选人信息
+            print(f"📊 记录候选人信息...")
+            self.record_candidate_info(resume_data)
             
-            if text_area:
-                # 逐个字符输入，模拟人工输入
-                for char in greeting:
-                    await text_area.type(char, delay=random.uniform(50, 150))
-                    await asyncio.sleep(random.uniform(0.01, 0.03))
-                
-                print(f"已输入招呼语: {greeting}")
-                
-                # 随机延迟，模拟思考时间
-                await asyncio.sleep(random.uniform(0.8, 1.5))
-                
-                # 查找发送按钮并点击
-                send_button = await button.page.query_selector(
-                    '.send-message-btn' or 'button:has-text("发送")'
-                )
-                
-                if send_button:
-                    await send_button.click()
-                    print(f"已发送招呼")
-                    
-                    # 等待发送完成
-                    await asyncio.sleep(random.uniform(1.0, 2.0))
-                    
-                    # 记录候选人信息
-                    self.record_candidate_info(resume_data)
-                    
-                    return True
-                else:
-                    print("未找到发送按钮")
-            else:
-                print("未找到输入框")
+            print(f"🎉 成功向候选人 {candidate_name} 打招呼！")
+            return True
                 
         except Exception as e:
-            print(f"打招呼失败: {e}")
+            print(f"❌ 向候选人 {candidate_name} 打招呼失败: {e}")
+            import traceback
+            traceback.print_exc()
             
         return False
         

@@ -6,13 +6,37 @@
 
 import { getApiService, OperationLog } from './api-service';
 
-// 日志条目接口
+// 日志条目接口 - 更新为候选人分组格式
 export interface LogEntry {
   id: string;
   timestamp: string;
   action: string;
   details: string;
   data?: any; // 用于存储展示给用户的数据
+}
+
+// 候选人日志分组接口
+export interface CandidateLogGroup {
+  candidate_id: string;
+  candidate_name: string;
+  candidate_position: string;
+  candidate_company: string;
+  final_action: string;
+  latest_timestamp: string | Date;
+  ai_evaluation?: {
+    score: number;
+    passed: boolean;
+    reason: string;
+    highlights?: string[];
+    concerns?: string[];
+  };
+  operations: {
+    id: string;
+    timestamp: string;
+    action: string;
+    details: string;
+    metadata?: any;
+  }[];
 }
 
 // 日志服务选项
@@ -193,15 +217,78 @@ export class LogService {
   }
   
   /**
-   * 获取所有日志条目
+   * 获取所有日志条目 - 返回候选人分组格式
    */
-  async getEntries(): Promise<LogEntry[]> {
-    // 如果启用API且不在加载中，则尝试从API获取最新日志
-    if (this.options.useApi && !this.isLoading) {
-      await this.refreshLogsFromApi();
+  async getEntries(): Promise<CandidateLogGroup[]> {
+    // 如果启用API，则从API获取日志
+    if (this.options.useApi) {
+      try {
+        const apiService = getApiService();
+        const response = await apiService.getLogs();
+        
+        if (response.success && Array.isArray(response.data)) {
+          // API返回的已经是分组格式，直接返回
+          return response.data.map((group: any): CandidateLogGroup => ({
+            candidate_id: group.candidate_id,
+            candidate_name: group.candidate_name,
+            candidate_position: group.candidate_position,
+            candidate_company: group.candidate_company,
+            final_action: group.final_action,
+            latest_timestamp: group.latest_timestamp,
+            ai_evaluation: group.ai_evaluation,
+            operations: group.operations || []
+          }));
+        }
+      } catch (error) {
+        console.error('从API获取日志失败，使用本地日志', error);
+      }
     }
     
-    return [...this.entries];
+    // 如果API失败，将本地日志转换为分组格式
+    return this.convertToGroupedFormat(this.entries);
+  }
+
+  /**
+   * 将传统日志格式转换为候选人分组格式
+   */
+  private convertToGroupedFormat(entries: LogEntry[]): CandidateLogGroup[] {
+    const groups: { [key: string]: CandidateLogGroup } = {};
+    
+    entries.forEach(entry => {
+      const candidateId = entry.data?.candidateId || entry.data?.id || `unknown_${entry.id}`;
+      const candidateName = entry.data?.name || entry.data?.candidate_name || '未知候选人';
+      
+      if (!groups[candidateId]) {
+        groups[candidateId] = {
+          candidate_id: candidateId,
+          candidate_name: candidateName,
+          candidate_position: entry.data?.position || '未知',
+          candidate_company: entry.data?.company || '未知',
+          final_action: entry.action,
+          latest_timestamp: entry.timestamp,
+          ai_evaluation: entry.data?.ai_evaluation,
+          operations: []
+        };
+      }
+      
+      groups[candidateId].operations.push({
+        id: entry.id,
+        timestamp: entry.timestamp,
+        action: entry.action,
+        details: entry.details,
+        metadata: entry.data
+      });
+      
+      // 更新最新时间戳和最终操作
+      if (new Date(entry.timestamp) > new Date(groups[candidateId].latest_timestamp)) {
+        groups[candidateId].latest_timestamp = entry.timestamp;
+        groups[candidateId].final_action = entry.action;
+      }
+    });
+    
+    return Object.values(groups).sort((a, b) => 
+      new Date(b.latest_timestamp).getTime() - new Date(a.latest_timestamp).getTime()
+    );
   }
   
   /**
@@ -286,9 +373,28 @@ export class LogService {
       const apiService = getApiService();
       const response = await apiService.getLogs();
       
-      if (response.success && Array.isArray(response.data)) {
+      if (response.success) {
+        // 尝试处理不同格式的API响应
+        let logData: OperationLog[] = [];
+        
+        if (Array.isArray(response.data)) {
+          logData = response.data;
+        } else if (response.data && typeof response.data === 'object') {
+          // 使用类型断言避免TypeScript错误
+          const responseObj = response.data as Record<string, any>;
+          if ('data' in responseObj && Array.isArray(responseObj.data)) {
+            logData = responseObj.data;
+          } else {
+            console.log('日志数据为空或格式不支持', response);
+            return;
+          }
+        } else {
+          console.log('日志数据为空或格式不支持', response);
+          return;
+        }
+        
         // 转换API日志格式为本地日志格式
-        const apiLogs = response.data.map((log: OperationLog): LogEntry => ({
+        const apiLogs = logData.map((log: OperationLog): LogEntry => ({
           id: log.id,
           timestamp: log.timestamp,
           action: log.action,
