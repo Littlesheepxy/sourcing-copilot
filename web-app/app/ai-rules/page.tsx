@@ -1,9 +1,23 @@
 "use client";
 
-import React from "react";
+import React, { Suspense } from "react";
 import AIFilterEditor from "../../components/RuleEditor/AIFilterEditor";
 import { ArrowLeft, Brain, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
+
+// 创建一个包装组件来处理Suspense
+function AIFilterEditorWrapper() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+        <span className="ml-2 text-gray-600 dark:text-gray-400">加载中...</span>
+      </div>
+    }>
+      <AIFilterEditor />
+    </Suspense>
+  );
+}
 
 export default function AIRulesPage() {
   const router = useRouter();
@@ -78,7 +92,7 @@ export default function AIRulesPage() {
 
         {/* AI筛选编辑器 */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <AIFilterEditor />
+          <AIFilterEditorWrapper />
         </div>
 
         {/* 底部提示 */}

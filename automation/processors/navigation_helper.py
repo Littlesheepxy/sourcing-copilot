@@ -34,6 +34,17 @@ class NavigationHelper:
                 print("🛑 检测到详情页正在处理中，暂停滚动操作直到详情页处理完成")
                 return False
             
+            # 检查是否正在进行打招呼操作
+            if hasattr(self.processor, 'detail_processor') and hasattr(self.processor.detail_processor, 'greeting_in_progress') and self.processor.detail_processor.greeting_in_progress:
+                print("🛑 检测到正在进行打招呼操作，暂停滚动操作")
+                return False
+            
+            # 使用精确的弹窗检测功能
+            has_active_popup = await self.check_for_active_detail_popup(page)
+            if has_active_popup:
+                print("🛑 检测到活跃的简历详情弹窗，停止滚动以避免干扰")
+                return False
+            
             # 首先确保详情页已关闭，避免在详情页中滑动
             await self.ensure_detail_page_closed(page)
             
@@ -42,7 +53,13 @@ class NavigationHelper:
                 print("🛑 详情页关闭后仍在处理中，不进行滚动")
                 return False
             
-            print("✅ 详情页已确认关闭，开始滚动加载更多卡片...")
+            # 最后再次检查是否还有活跃弹窗
+            has_active_popup_after_close = await self.check_for_active_detail_popup(page)
+            if has_active_popup_after_close:
+                print("🛑 关闭详情页后仍检测到活跃弹窗，停止滚动")
+                return False
+            
+            print("✅ 详情页已确认关闭且无活跃弹窗，开始滚动加载更多卡片...")
             
             # 记录滚动前的卡片数量
             before_card_count = await page.evaluate('''
@@ -148,6 +165,17 @@ class NavigationHelper:
                     print("🛑 滚动过程中检测到详情页处理开始，立即停止滚动")
                     return False
                 
+                # 检查是否正在进行打招呼操作
+                if hasattr(self.processor, 'detail_processor') and hasattr(self.processor.detail_processor, 'greeting_in_progress') and self.processor.detail_processor.greeting_in_progress:
+                    print("🛑 滚动过程中检测到正在进行打招呼操作，立即停止滚动")
+                    return False
+                
+                # 在滚动前再次检查是否有弹窗出现（包括iframe内的弹窗）
+                has_active_popup_during_scroll = await self.check_for_active_detail_popup(page)
+                if has_active_popup_during_scroll:
+                    print("🛑 滚动过程中检测到活跃的简历详情弹窗，立即停止滚动")
+                    return False
+                
                 # 检查停止信号
                 if not self.processor.is_processing:
                     print("🛑 收到停止信号，停止滚动")
@@ -169,7 +197,34 @@ class NavigationHelper:
                 
                 # 添加随机延迟，模拟人类思考和查看内容的时间
                 random_delay = random.uniform(0.5, 1.2)
-                await asyncio.sleep(random_delay)
+                
+                # 在延迟期间也要检查状态，分段检查
+                delay_segments = 4  # 将延迟分为4段检查
+                segment_delay = random_delay / delay_segments
+                
+                for i in range(delay_segments):
+                    await asyncio.sleep(segment_delay)
+                    
+                    # 在延迟期间检查详情页处理状态
+                    if hasattr(self.processor, 'detail_processor') and self.processor.detail_processor.processing_detail:
+                        print("🛑 滚动延迟期间检测到详情页处理开始，立即停止滚动")
+                        return False
+                    
+                    # 在延迟期间检查是否正在进行打招呼操作
+                    if hasattr(self.processor, 'detail_processor') and hasattr(self.processor.detail_processor, 'greeting_in_progress') and self.processor.detail_processor.greeting_in_progress:
+                        print("🛑 滚动延迟期间检测到正在进行打招呼操作，立即停止滚动")
+                        return False
+                    
+                    # 在延迟期间检查弹窗状态
+                    has_popup_during_delay = await self.check_for_active_detail_popup(page)
+                    if has_popup_during_delay:
+                        print("🛑 滚动延迟期间检测到活跃的简历详情弹窗，立即停止滚动")
+                        return False
+                    
+                    # 检查停止信号
+                    if not self.processor.is_processing:
+                        print("🛑 延迟期间收到停止信号，停止滚动")
+                        return False
                 
                 # 更新当前滚动位置
                 current_scroll_position = await page.evaluate('window.scrollY')
@@ -471,6 +526,94 @@ class NavigationHelper:
             traceback.print_exc()
             return False
     
+    async def check_for_active_detail_popup(self, page):
+        """
+        检查是否有活跃的简历详情弹窗（包括iframe内的弹窗）
+        
+        Args:
+            page: 页面对象
+            
+        Returns:
+            bool: 是否检测到活跃的详情弹窗
+        """
+        try:
+            # Boss直聘专用的弹窗检测选择器
+            boss_popup_selectors = [
+                '[data-type="boss-dialog"]',  # Boss直聘专用弹窗
+                '.ka-dialog[style*="display: block"]',  # 显示状态的对话框
+                '.ui-dialog:not([style*="display: none"])',  # 可见的对话框
+                '.modal[style*="display: block"]',  # 显示的模态框
+                '.popup[style*="display: block"]',  # 显示的弹窗
+                '.dialog[style*="display: block"]',  # 显示的对话框
+                '.layui-layer:not(.layui-layer-close)',  # LayUI弹窗
+                '.resume-detail-wrap',  # 简历详情包装器
+                '.candidate-detail',  # 候选人详情
+                '[class*="detail"][style*="display: block"]',  # 任何显示状态的详情元素
+                '.dialog-wrap:not([style*="display: none"])',  # 对话框包装器
+                '.modal-dialog:not([style*="display: none"])',  # 模态对话框
+                '.popup-wrap:not([style*="display: none"])',  # 弹窗包装器
+                '.detail-popup:not([style*="display: none"])',  # 详情弹窗
+                '.resume-popup:not([style*="display: none"])',  # 简历弹窗
+                '.candidate-popup:not([style*="display: none"])'  # 候选人弹窗
+            ]
+            
+            # 检查主页面的弹窗
+            for selector in boss_popup_selectors:
+                try:
+                    elements = await page.query_selector_all(selector)
+                    for element in elements:
+                        if element and await element.is_visible():
+                            # 额外检查元素是否真的包含简历内容
+                            has_resume_content = await element.query_selector('.geek-base-info, .resume-item, .work-experience, .education-info, [class*="resume"], [class*="candidate"], .btn-greet, .btn-chat, .candidate-name, .geek-name, .position-text, .company-text')
+                            if has_resume_content:
+                                print(f"🚨 检测到主页面活跃简历详情弹窗: {selector}")
+                                return True
+                except Exception:
+                    continue
+            
+            # 检查iframe内的弹窗
+            try:
+                iframe_elements = await page.query_selector_all('iframe')
+                for iframe_element in iframe_elements:
+                    try:
+                        iframe = await iframe_element.content_frame()
+                        if iframe:
+                            # 检查iframe是否包含简历相关内容
+                            iframe_url = iframe.url
+                            if any(keyword in iframe_url.lower() for keyword in ['recommend', 'detail', 'resume', 'candidate', 'geek']):
+                                # 检查iframe内的弹窗和内容
+                                for selector in boss_popup_selectors:
+                                    try:
+                                        elements = await iframe.query_selector_all(selector)
+                                        for element in elements:
+                                            if element and await element.is_visible():
+                                                # 更严格的简历内容检查
+                                                has_resume_content = await element.query_selector('.geek-base-info, .resume-item, .work-experience, .education-info, [class*="resume"], [class*="candidate"], .btn-greet, .btn-chat, .candidate-name, .geek-name, .position-text, .company-text, .candidate-position-text, .expect-job, .item-job')
+                                                if has_resume_content:
+                                                    print(f"🚨 检测到iframe内活跃简历详情弹窗: {selector}")
+                                                    return True
+                                    except Exception:
+                                        continue
+                                
+                                # 额外检查：直接检查iframe body是否包含简历内容
+                                try:
+                                    body_has_resume = await iframe.query_selector('body .geek-base-info, body .resume-item, body .work-experience, body .education-info, body [class*="resume"], body [class*="candidate"], body .btn-greet, body .btn-chat, body .candidate-name, body .geek-name')
+                                    if body_has_resume and await body_has_resume.is_visible():
+                                        print(f"🚨 检测到iframe body中包含活跃的简历详情内容")
+                                        return True
+                                except Exception:
+                                    pass
+                    except Exception:
+                        continue
+            except Exception as e:
+                print(f"检查iframe内活跃弹窗时出错: {e}")
+            
+            return False
+            
+        except Exception as e:
+            print(f"检查活跃弹窗时出错: {e}")
+            return False
+    
     async def try_close_detail_page(self, page):
         """
         尝试关闭详情页
@@ -538,23 +681,67 @@ class NavigationHelper:
                 '.modal-mask',
                 '[class*="detail"]',
                 '[class*="modal"]',
-                '[class*="popup"]'
+                '[class*="popup"]',
+                '[data-type="boss-dialog"]',
+                '.ka-dialog',
+                '.ui-dialog',
+                '.layui-layer',
+                '.dialog'
             ]
             
             detail_page_found = False
             
-            # 检查是否有详情页相关元素显示
+            # 检查主页面是否有详情页相关元素显示
             for indicator in detail_page_indicators:
                 try:
                     detail_element = await page.query_selector(indicator)
                     if detail_element:
                         is_visible = await detail_element.is_visible()
                         if is_visible:
-                            print(f"检测到详情页打开（选择器: {indicator}），准备关闭")
+                            print(f"检测到主页面详情页打开（选择器: {indicator}），准备关闭")
                             detail_page_found = True
                             break
                 except Exception:
                     continue
+            
+            # 检查iframe内是否有详情页弹窗
+            if not detail_page_found:
+                try:
+                    # 获取所有iframe
+                    iframe_selectors = [
+                        'iframe[name="recommendFrame"]',
+                        'iframe[src*="frame/recommend"]',
+                        'iframe[data-v-16429d95]',
+                        'iframe[src*="recommend"]',
+                        'iframe'
+                    ]
+                    
+                    for iframe_selector in iframe_selectors:
+                        iframe_elements = await page.query_selector_all(iframe_selector)
+                        for iframe_element in iframe_elements:
+                            try:
+                                iframe = await iframe_element.content_frame()
+                                if iframe:
+                                    # 在iframe内检查弹窗
+                                    for indicator in detail_page_indicators:
+                                        try:
+                                            iframe_detail_element = await iframe.query_selector(indicator)
+                                            if iframe_detail_element:
+                                                is_visible = await iframe_detail_element.is_visible()
+                                                if is_visible:
+                                                    print(f"检测到iframe内详情页打开（选择器: {indicator}），准备关闭")
+                                                    detail_page_found = True
+                                                    break
+                                        except Exception:
+                                            continue
+                                    if detail_page_found:
+                                        break
+                            except Exception:
+                                continue
+                        if detail_page_found:
+                            break
+                except Exception as e:
+                    print(f"检查iframe内弹窗时出错: {e}")
             
             # 如果检测到详情页，尝试关闭
             if detail_page_found:

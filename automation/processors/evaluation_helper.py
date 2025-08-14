@@ -10,6 +10,7 @@ import httpx
 import asyncio
 import os
 import openai
+from automation.utils.debug_logger import DebugLogger
 
 class EvaluationHelper:
     """评估帮助类，提供简历评估方法"""
@@ -26,6 +27,12 @@ class EvaluationHelper:
         Returns:
             dict: 评估结果
         """
+        candidate_name = resume_data.get('name', '未知候选人')
+        
+        # 打印调试开始信息
+        DebugLogger.print_extraction_start(candidate_name, resume_data.get('id', ''))
+        DebugLogger.print_config_info(config)
+        
         result = {
             "action": "continue",  # 默认继续到下一阶段
             "rejectReason": "",
@@ -36,96 +43,110 @@ class EvaluationHelper:
         }
         
         # 阶段1：检查期望职位
-        position = resume_data.get('position', '').strip()
+        position_raw = resume_data.get('position', '').strip()
+        position = position_raw
+        extraction_method = "直接从position字段提取"
         
         # 如果职位为空，尝试从fullText提取"期望："字段
         if not position and resume_data.get('fullText'):
+            DebugLogger.print_full_text_analysis(resume_data.get('fullText'))
             position_match = re.search(r'期望：\s*([^\n\r]+)', resume_data.get('fullText', ''))
             if position_match:
                 position = position_match.group(1).strip()
-                print(f"评估时从全文中提取到职位信息: {position}")
-            
-        print(f"候选人 {resume_data.get('name')} 期望职位: \"{position}\"")
+                extraction_method = "从全文中通过正则表达式提取"
+                # 重要：将提取到的期望岗位保存回resume_data
+                resume_data['position'] = position
         
-        # 获取岗位规则
+        # 打印期望岗位提取过程
+        DebugLogger.print_position_extraction(position_raw, position, extraction_method)
+        
+        # 检查是否启用了AI智能筛选
+        ai_enabled = config.get("aiEnabled", False)
+        job_description = config.get("jobDescription", "")
+        talent_profile = config.get("talentProfile", "")
+        filter_criteria = config.get("filterCriteria", "")
+        target_position = config.get("targetPosition", "")  # AI配置中的目标岗位
+        competitor_company = config.get("competitorCompany", "")  # AI配置中的竞对公司
+        
+        # 获取传统岗位规则
         position_rules = [r for r in config.get('rules', []) if r.get('type') == '岗位' and r.get('enabled')]
         
-        if position_rules:
-            # 提取期望职位中的关键词
-            position_keywords = []
-            for rule in position_rules:
-                position_keywords.extend(rule.get('keywords', []))
-                
-            print(f"配置的岗位规则关键词: {position_keywords}")
+        # 整合AI配置和传统规则的岗位关键词
+        position_keywords = []
+        
+        # 1. 从传统规则获取关键词
+        for rule in position_rules:
+            position_keywords.extend(rule.get('keywords', []))
+        
+        # 2. 从AI配置的目标岗位提取关键词
+        if target_position:
+            # 将目标岗位作为关键词添加
+            position_keywords.append(target_position)
+            print(f"🤖 从AI配置添加目标岗位关键词: {target_position}")
+        
+        # 进行岗位匹配检查
+        if position_keywords:
+            print(f"🎯 整合后的岗位关键词: {position_keywords}")
             
-            # 检查期望职位是否匹配规则
+            # 检查期望职位是否匹配规则 - 使用更精确的匹配逻辑
+            position_match_result = {"matched": False, "matched_keywords": []}
+            
             if position:
-                for keyword_list in position_keywords:
-                    if isinstance(keyword_list, list):
-                        # 对于多关键词列表，需要所有关键词都匹配
-                        all_matched = True
-                        for keyword in keyword_list:
-                            if keyword.lower() not in position.lower():
-                                all_matched = False
-                                break
+                position_match_result = EvaluationHelper._match_position_precisely(position, position_keywords)
+                
+                if position_match_result['matched']:
+                    result["stageResult"]["matchPosition"] = True
+                else:
+                    # 如果直接匹配失败，尝试搜索整个文本
+                    if resume_data.get('fullText'):
+                        full_text = resume_data.get('fullText')
+                        position_match_result = EvaluationHelper._match_position_precisely(full_text, position_keywords, is_full_text=True)
                         
-                        if all_matched:
-                            print(f"岗位匹配成功! 关键词组 {keyword_list} 全部匹配 \"{position}\"")
+                        if position_match_result['matched']:
                             result["stageResult"]["matchPosition"] = True
-                            break
-                    else:
-                        # 单个关键词直接匹配
-                        if keyword_list.lower() in position.lower():
-                            print(f"岗位匹配成功! 关键词 \"{keyword_list}\" 匹配 \"{position}\"")
-                            result["stageResult"]["matchPosition"] = True
-                            break
             else:
                 # 如果期望职位为空，尝试搜索整个文本
-                print("期望职位为空或无效，尝试从其他字段寻找职位信息...")
-                
-                # 搜索简历全文查找关键词
                 if resume_data.get('fullText'):
                     full_text = resume_data.get('fullText')
+                    position_match_result = EvaluationHelper._match_position_precisely(full_text, position_keywords, is_full_text=True)
                     
-                    for keyword_list in position_keywords:
-                        if isinstance(keyword_list, list):
-                            # 对于多关键词列表，需要所有关键词都匹配
-                            all_matched = True
-                            matched_text = full_text
-                            for keyword in keyword_list:
-                                if keyword.lower() not in full_text.lower():
-                                    all_matched = False
-                                    break
-                                else:
-                                    # 提取包含关键词的句子作为展示
-                                    keyword_match = re.search(f'.{{0,20}}{re.escape(keyword)}.{{0,20}}', full_text, re.IGNORECASE)
-                                    if keyword_match:
-                                        matched_text = keyword_match.group(0)
-                            
-                            if all_matched:
-                                print(f"从全文中找到职位匹配! 关键词组 {keyword_list} 在文本中: \"{matched_text}\"")
-                                result["stageResult"]["matchPosition"] = True
-                                break
-                        else:
-                            # 单个关键词直接匹配
-                            if keyword_list.lower() in full_text.lower():
-                                # 提取包含关键词的句子作为展示
-                                keyword_match = re.search(f'.{{0,20}}{re.escape(keyword_list)}.{{0,20}}', full_text, re.IGNORECASE)
-                                if keyword_match:
-                                    matched_text = keyword_match.group(0)
-                                    print(f"从全文中找到职位匹配! 关键词 \"{keyword_list}\" 在文本中: \"{matched_text}\"")
-                                    result["stageResult"]["matchPosition"] = True
-                                    break
+                    if position_match_result['matched']:
+                        result["stageResult"]["matchPosition"] = True
+            
+            # 构建规则信息用于调试日志（整合传统规则和AI配置）
+            combined_rules = position_rules.copy()
+            if target_position:
+                # 添加AI配置作为虚拟规则
+                ai_rule = {
+                    "type": "岗位",
+                    "enabled": True,
+                    "keywords": [target_position],
+                    "source": "AI配置"
+                }
+                combined_rules.append(ai_rule)
+            
+            # 打印期望岗位匹配过程
+            DebugLogger.print_position_matching(position, combined_rules, position_match_result)
             
             # 如果职位不匹配，直接跳过
             if not result["stageResult"]["matchPosition"]:
                 result["action"] = "skip"
                 result["rejectReason"] = "期望职位不匹配"
+                DebugLogger.print_evaluation_result(candidate_name, result["stageResult"], result["action"], result["rejectReason"])
                 return result
+        else:
+            # 如果启用了AI但没有配置任何岗位关键词，跳过岗位匹配
+            if ai_enabled or job_description or talent_profile or filter_criteria:
+                print("🤖 AI智能筛选模式：未配置岗位关键词，跳过卡片阶段职位匹配")
+                result["stageResult"]["matchPosition"] = True
+            else:
+                print("⚠️ 未配置任何岗位筛选条件，默认通过岗位匹配")
+                result["stageResult"]["matchPosition"] = True
         
         # 阶段2: 检查是否竞对公司
         company_rules = [r for r in config.get("rules", []) if r.get("type") == "公司"]
         company_match = False
+        company_match_result = {"matched": False, "matched_company": "", "matched_keyword": ""}
         
         # 确保company字段是列表
         company_list = resume_data.get('company', [])
@@ -134,29 +155,76 @@ class EvaluationHelper:
         elif not isinstance(company_list, list):
             company_list = [company_list]
         
+        # 打印公司信息提取过程
+        DebugLogger.print_company_extraction(resume_data.get('company'), company_list)
+        
+        # 整合传统规则和AI配置的竞对公司关键词
+        company_keywords = []
+        
+        # 1. 从传统规则获取关键词
         for rule in company_rules:
-            keywords = rule.get("keywords", [])
+            company_keywords.extend(rule.get("keywords", []))
+        
+        # 2. 从AI配置的竞对公司提取关键词
+        if competitor_company:
+            company_keywords.append(competitor_company)
+            print(f"🤖 从AI配置添加竞对公司关键词: {competitor_company}")
+        
+        # 进行竞对公司匹配
+        if company_keywords:
+            print(f"🏭 整合后的竞对公司关键词: {company_keywords}")
             
-            if not keywords:
-                continue
-                
             for company in company_list:
                 if company is None:
                     continue
                 company_lower = str(company).lower()
-                for keyword in keywords:
+                for keyword in company_keywords:
                     keyword_lower = str(keyword).lower()
                     if keyword_lower in company_lower:
                         # 竞对公司直接通过
-                        print(f"从竞对公司 '{company}' 来的候选人，匹配关键词 '{keyword}'")
                         company_match = True
+                        company_match_result = {
+                            "matched": True,
+                            "matched_company": company,
+                            "matched_keyword": keyword
+                        }
                         # 设置为可以直接打招呼
                         result["stageResult"]["competitorCompany"] = True
                         result["passed"] = True
                         result["action"] = "greet"
-                        print("设置为竞对公司匹配，可直接打招呼")
+                        
+                        # 构建规则信息用于调试日志（整合传统规则和AI配置）
+                        combined_company_rules = company_rules.copy()
+                        if competitor_company:
+                            # 添加AI配置作为虚拟规则
+                            ai_company_rule = {
+                                "type": "公司",
+                                "enabled": True,
+                                "keywords": [competitor_company],
+                                "source": "AI配置"
+                            }
+                            combined_company_rules.append(ai_company_rule)
+                        
+                        # 打印竞对公司匹配过程
+                        DebugLogger.print_company_matching(company_list, combined_company_rules, company_match_result)
+                        DebugLogger.print_evaluation_result(candidate_name, result["stageResult"], result["action"])
                         return result
-            
+        
+        # 构建规则信息用于调试日志（整合传统规则和AI配置）
+        combined_company_rules = company_rules.copy()
+        if competitor_company:
+            # 添加AI配置作为虚拟规则
+            ai_company_rule = {
+                "type": "公司",
+                "enabled": True,
+                "keywords": [competitor_company],
+                "source": "AI配置"
+            }
+            combined_company_rules.append(ai_company_rule)
+        
+        # 打印竞对公司匹配过程（未匹配的情况）
+        DebugLogger.print_company_matching(company_list, combined_company_rules, company_match_result)
+        
         result["stageResult"]["competitorCompany"] = company_match
         
         # 通过了岗位检查，并且是竞对公司或者需要继续检查关键词
@@ -166,6 +234,12 @@ class EvaluationHelper:
         # 如果是竞对公司，可以直接打招呼
         if company_match:
             result["action"] = "greet"
+        
+        # 打印最终评估结果
+        DebugLogger.print_evaluation_result(candidate_name, result["stageResult"], result["action"])
+        
+        # 打印提取总结
+        DebugLogger.print_extraction_summary(candidate_name, resume_data)
             
         return result
     
@@ -286,9 +360,10 @@ class EvaluationHelper:
         ai_enabled = config.get("aiEnabled", False)
         job_description = config.get("jobDescription", "")
         talent_profile = config.get("talentProfile", "")
+        filter_criteria = config.get("filterCriteria", "")
         
         # 如果没有启用AI智能筛选，则回退到传统关键词筛选
-        if not ai_enabled and not job_description and not talent_profile:
+        if not ai_enabled and not job_description and not talent_profile and not filter_criteria:
             print("🔄 未启用AI智能筛选，使用传统关键词评估方法")
             # 获取所有启用的关键词规则
             active_rules = [r for r in config.get("rules", []) if r.get("enabled") and r.get("type") == "岗位核心关键词"]
@@ -316,8 +391,20 @@ class EvaluationHelper:
             # 获取通过分数
             pass_score = config.get("passScore", 70)
             
-            # 如果没有配置JD和人才画像，使用关键词规则作为备用
-            if not job_description and not talent_profile:
+            # 检查AI筛选配置的完整性
+            has_config = False
+            if filter_criteria:
+                print(f"✅ 已配置AI智能筛选标准（长度: {len(filter_criteria)} 字符）")
+                has_config = True
+            if job_description:
+                print(f"✅ 已配置职位描述（长度: {len(job_description)} 字符）")
+                has_config = True
+            if talent_profile:
+                print(f"✅ 已配置人才画像（长度: {len(talent_profile)} 字符）")
+                has_config = True
+            
+            # 如果没有配置任何AI筛选内容，使用关键词规则作为备用
+            if not has_config:
                 active_rules = [r for r in config.get("rules", []) if r.get("enabled") and r.get("type") == "岗位核心关键词"]
                 if active_rules:
                     keywords = active_rules[0].get("keywords", [])
@@ -325,9 +412,10 @@ class EvaluationHelper:
                         job_description = f"岗位要求包含以下关键技能：{', '.join(keywords)}"
                         talent_profile = "理想候选人应具备相关技能和工作经验"
                         print(f"🔄 从关键词规则生成JD和人才画像: {job_description}")
+                        has_config = True
                 
-                if not job_description and not talent_profile:
-                    print("⚠️ 没有配置JD、人才画像或关键词，默认通过")
+                if not has_config:
+                    print("⚠️ 没有配置任何筛选标准，默认通过")
                     result["passed"] = True
                     result["score"] = 80
                     return result
@@ -395,9 +483,31 @@ class EvaluationHelper:
         print(f"📊 准备发送给AI评估的内容长度: {len(resume_content)} 字符")
         
         # 构建智能提示词
-        if ai_enabled and job_description and talent_profile:
-            # 使用完整的JD和人才画像构建提示词
-            prompt = f"""你是一位资深的人力资源专家，负责为企业筛选最合适的候选人。请根据以下职位要求和理想人才画像，评估候选人简历的匹配度。
+        if ai_enabled and (filter_criteria or (job_description and talent_profile)):
+            # 优先使用AI智能筛选标准，其次使用JD和人才画像
+            if filter_criteria:
+                prompt = f"""你是一位资深的人力资源专家，负责为企业筛选最合适的候选人。请根据以下AI智能筛选标准，评估候选人简历的匹配度。
+
+【AI智能筛选标准】
+{filter_criteria}
+
+【候选人简历】
+{resume_content}
+
+【评估要求】
+请严格按照上述筛选标准中的评估维度、必备条件、加分项和评分标准进行评估。
+
+请以JSON格式输出评估结果：
+{{
+  "result": "通过" 或 "不通过",
+  "score": 0-100之间的整数分数,
+  "reason": "详细评估理由，包含匹配的优势和不足，不超过150字",
+  "highlights": ["候选人的3-5个突出优势或关键匹配点"],
+  "concerns": ["需要关注的2-3个不足或风险点"]
+}}"""
+            else:
+                # 使用完整的JD和人才画像构建提示词
+                prompt = f"""你是一位资深的人力资源专家，负责为企业筛选最合适的候选人。请根据以下职位要求和理想人才画像，评估候选人简历的匹配度。
 
 【职位描述】
 {job_description}
@@ -514,12 +624,16 @@ class EvaluationHelper:
                     if "reason" in ai_result:
                         if not result["passed"]:
                             result["rejectReason"] = ai_result["reason"]
+                        else:
+                            result["reason"] = ai_result["reason"]  # 通过时也保存原因
                         print(f"📝 评估原因: {ai_result['reason']}")
                         
-                    # 记录详细评估信息（如果有）
+                    # 保存详细评估信息到结果中
                     if "highlights" in ai_result:
+                        result["highlights"] = ai_result["highlights"]
                         print(f"✨ 候选人优势: {ai_result['highlights']}")
                     if "concerns" in ai_result:
+                        result["concerns"] = ai_result["concerns"]
                         print(f"⚠️ 关注点: {ai_result['concerns']}")
                         
                     print(f"✅ AI评估完成: 结果={'通过' if result['passed'] else '不通过'}, 分数={result['score']}, 原因={ai_result.get('reason', '')}")
@@ -814,7 +928,14 @@ class EvaluationHelper:
                     return True, ""
             
             # 4. 关键词评分 - 详情页主要评估逻辑
-            if keyword_rules:
+            # 检查是否启用了AI智能筛选
+            ai_enabled = config.get("aiEnabled", False)
+            job_description = config.get("jobDescription", "")
+            talent_profile = config.get("talentProfile", "")
+            filter_criteria = config.get("filterCriteria", "")
+            
+            # 如果启用了AI智能筛选或有关键词规则，进行评估
+            if ai_enabled or job_description or talent_profile or filter_criteria or keyword_rules:
                 print("使用大模型评估简历与岗位匹配度...")
                 # 调用大模型评估方法
                 ai_result = await EvaluationHelper.evaluate_keywords_ai(resume_data, config)
@@ -826,7 +947,8 @@ class EvaluationHelper:
                     print(f"大模型评估不通过: {ai_result['rejectReason']}")
                     return False, ai_result["rejectReason"]
             
-            # 默认通过
+            # 默认通过（只有在没有任何评估规则时）
+            print("⚠️ 没有配置任何评估规则，默认通过")
             return True, ""
             
         except Exception as e:
@@ -834,3 +956,126 @@ class EvaluationHelper:
             import traceback
             traceback.print_exc()
             return False, f"评估出错: {str(e)}" 
+
+    @staticmethod
+    def _match_position_precisely(text, keywords, is_full_text=False):
+        """
+        更精确地匹配职位关键词
+        
+        Args:
+            text: 待匹配的文本（职位名称或全文）
+            keywords: 关键词列表
+            is_full_text: 是否为全文匹配（影响匹配策略）
+            
+        Returns:
+            dict: 匹配结果，包含是否匹配和匹配的关键词
+        """
+        result = {
+            "matched": False,
+            "matched_keywords": []
+        }
+        
+        if not text or not keywords:
+            return result
+        
+        text_lower = text.lower()
+        matched_keywords = []
+        
+        # 对每个关键词进行精确匹配
+        for keyword_item in keywords:
+            if isinstance(keyword_item, list):
+                # 如果是关键词组，所有关键词都必须匹配
+                all_matched = True
+                temp_matched = []
+                
+                for keyword in keyword_item:
+                    keyword_lower = keyword.lower()
+                    
+                    if is_full_text:
+                        # 全文匹配：使用词边界匹配，避免部分匹配
+                        pattern = r'\b' + re.escape(keyword_lower) + r'\b'
+                        if re.search(pattern, text_lower):
+                            temp_matched.append(keyword)
+                        else:
+                            all_matched = False
+                            break
+                    else:
+                        # 职位名称匹配：使用更严格的匹配
+                        if EvaluationHelper._is_position_keyword_match(text_lower, keyword_lower):
+                            temp_matched.append(keyword)
+                        else:
+                            all_matched = False
+                            break
+                
+                if all_matched and temp_matched:
+                    matched_keywords.extend(temp_matched)
+                    result["matched"] = True
+            else:
+                # 单个关键词匹配
+                keyword_lower = keyword_item.lower()
+                
+                if is_full_text:
+                    # 全文匹配：使用词边界匹配
+                    pattern = r'\b' + re.escape(keyword_lower) + r'\b'
+                    if re.search(pattern, text_lower):
+                        matched_keywords.append(keyword_item)
+                        result["matched"] = True
+                else:
+                    # 职位名称匹配：使用更严格的匹配
+                    if EvaluationHelper._is_position_keyword_match(text_lower, keyword_lower):
+                        matched_keywords.append(keyword_item)
+                        result["matched"] = True
+        
+        result["matched_keywords"] = matched_keywords
+        return result
+    
+    @staticmethod
+    def _is_position_keyword_match(position_text, keyword):
+        """
+        判断职位关键词是否匹配
+        
+        Args:
+            position_text: 职位文本（已转小写）
+            keyword: 关键词（已转小写）
+            
+        Returns:
+            bool: 是否匹配
+        """
+        # 1. 精确匹配
+        if position_text == keyword:
+            return True
+        
+        # 2. 检查关键词是否在职位文本中
+        if keyword in position_text:
+            # 获取关键词在文本中的位置
+            start_pos = position_text.find(keyword)
+            
+            # 检查关键词前面是否有不相关的职位词汇
+            prefix_chars = position_text[:start_pos]
+            
+            # 定义不相关的职位前缀（这些前缀表示不同的职位类型）
+            unrelated_prefixes = ['原画', '美术', '设计师', '开发', '程序', '测试', '运营', '市场', '销售']
+            
+            # 如果前面有不相关的职位词汇，则不匹配
+            for prefix in unrelated_prefixes:
+                if prefix in prefix_chars:
+                    print(f"职位匹配被拒绝: '{position_text}' 包含不相关前缀 '{prefix}'")
+                    return False
+            
+            # 特殊情况：如果关键词是"策划"，但前面有"美术"、"原画"等，也应该拒绝
+            if keyword == "策划":
+                # 检查是否是纯策划职位还是其他职位的策划部分
+                unrelated_art_prefixes = ['美术', '原画', '角色', '场景', '特效', 'ui', 'ux']
+                for art_prefix in unrelated_art_prefixes:
+                    if art_prefix in prefix_chars:
+                        print(f"策划职位匹配被拒绝: '{position_text}' 包含美术相关前缀 '{art_prefix}'")
+                        return False
+            
+            return True
+        
+        # 3. 词边界匹配（主要针对英文）
+        pattern = r'\b' + re.escape(keyword) + r'\b'
+        if re.search(pattern, position_text):
+            return True
+        
+        return False 

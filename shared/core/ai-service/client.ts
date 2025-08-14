@@ -65,6 +65,91 @@ export class AIServiceClient implements AIService {
   }
   
   /**
+   * 发送消息并获取流式回复
+   * @param messages 消息历史
+   * @param onChunk 收到数据块时的回调函数
+   * @returns Promise<string> 完整的回复内容
+   */
+  async sendMessageStream(
+    messages: Message[], 
+    onChunk: (chunk: string) => void
+  ): Promise<string> {
+    try {
+      const response = await fetch(`${this.config.apiBaseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.config.apiKey}`
+        },
+        body: JSON.stringify({
+          model: this.config.modelName,
+          messages: messages.map(msg => ({
+            role: msg.role,
+            content: msg.content
+          })),
+          temperature: this.config.temperature,
+          max_tokens: this.config.maxTokens,
+          stream: true
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(`API请求失败: ${response.status} ${errorData ? JSON.stringify(errorData) : response.statusText}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('无法获取响应流');
+      }
+
+      const decoder = new TextDecoder();
+      let fullContent = '';
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          
+          if (done) break;
+          
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n');
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              
+              if (data === '[DONE]') {
+                return fullContent;
+              }
+              
+              try {
+                const parsed = JSON.parse(data);
+                const content = parsed.choices?.[0]?.delta?.content;
+                
+                if (content) {
+                  fullContent += content;
+                  onChunk(content);
+                }
+              } catch (parseError) {
+                // 忽略解析错误，继续处理下一行
+                continue;
+              }
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+
+      return fullContent;
+    } catch (error) {
+      console.error('AI流式服务调用失败:', error);
+      throw new Error(`AI流式服务调用失败: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  
+  /**
    * 分析简历
    * @param resumeData 简历数据
    * @returns 分析结果

@@ -9,6 +9,7 @@ import TalentProfilePanel from './panels/TalentProfilePanel';
 import AIAssistantChat, { ChatMessage } from './panels/AIAssistantChat';
 import FilterCriteriaPanel from './panels/FilterCriteriaPanel';
 import { useAIRecommendations } from './hooks/useAIRecommendations';
+import { useSearchParams } from 'next/navigation';
 
 // AI筛选配置接口
 interface AIFilterConfig {
@@ -25,6 +26,10 @@ interface AIFilterConfig {
 const AIFilterEditor: React.FC = () => {
   // 添加客户端渲染检查
   const [isClient, setIsClient] = useState(false);
+  const searchParams = useSearchParams();
+  
+  // AI助手高亮状态
+  const [shouldHighlightAI, setShouldHighlightAI] = useState(false);
   
   // 核心配置状态
   const [config, setConfig] = useState<AIFilterConfig>({
@@ -46,6 +51,7 @@ const AIFilterEditor: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>('basic');
   const [previewMode, setPreviewMode] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   
   // 聊天状态
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
@@ -75,7 +81,78 @@ const AIFilterEditor: React.FC = () => {
   // 确保只在客户端环境中初始化
   useEffect(() => {
     setIsClient(true);
-  }, []);
+    
+    // 检查URL参数，如果有highlight=ai，则触发AI助手高亮
+    if (searchParams.get('highlight') === 'ai') {
+      setTimeout(() => {
+        setShouldHighlightAI(true);
+        // 清除URL参数（可选）
+        const url = new URL(window.location.href);
+        url.searchParams.delete('highlight');
+        window.history.replaceState({}, '', url.toString());
+        
+        // 2秒后重置状态，以便下次可以再次触发
+        setTimeout(() => {
+          setShouldHighlightAI(false);
+        }, 2000);
+      }, 500); // 延迟500ms让页面先加载完成
+    }
+  }, [searchParams]);
+
+  // 自动保存功能 - 当配置变化时自动保存
+  useEffect(() => {
+    if (!isClient) return;
+    
+    // 防抖保存，避免频繁保存
+    const autoSaveTimer = setTimeout(async () => {
+      // 检查是否有有效配置需要保存
+      if (config.basicFilters.position || 
+          config.basicFilters.companies.length > 0 || 
+          config.filterCriteria) {
+        
+        try {
+          setAutoSaveStatus('saving');
+          console.log('🔄 自动保存AI智能筛选配置...');
+          
+          const configToSave = {
+            rules: [],
+            autoMode: false,
+            passScore: 70,
+            aiEnabled: true,
+            filterCriteria: config.filterCriteria,
+            strictLevel: config.strictLevel,
+            basicPosition: config.basicFilters.position,
+            basicCompanies: config.basicFilters.companies,
+            basicKeywords: config.basicFilters.keywords,
+            jobDescription: config.jobDescription,
+            talentProfile: config.talentProfile
+          };
+
+          const response = await fetch('http://localhost:8000/api/config', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(configToSave)
+          });
+          
+          if (response.ok) {
+            console.log('✅ AI智能筛选配置自动保存成功');
+            setAutoSaveStatus('saved');
+            setTimeout(() => setAutoSaveStatus('idle'), 2000);
+          } else {
+            throw new Error('保存失败');
+          }
+        } catch (error) {
+          console.log('⚠️ 自动保存失败，将在手动保存时重试:', error);
+          setAutoSaveStatus('error');
+          setTimeout(() => setAutoSaveStatus('idle'), 3000);
+        }
+      }
+    }, 2000); // 2秒防抖
+
+    return () => clearTimeout(autoSaveTimer);
+  }, [isClient, config.basicFilters, config.filterCriteria, config.strictLevel, config.jobDescription, config.talentProfile]);
 
   // 组件加载时从后端获取配置 - 只在客户端执行
   useEffect(() => {
@@ -561,6 +638,22 @@ ${context}
             {previewMode ? '编辑模式' : '预览模式'}
           </button>
           
+          {/* 自动保存状态指示器 */}
+          {autoSaveStatus !== 'idle' && (
+            <div className={`px-3 py-2 rounded-lg flex items-center text-sm ${
+              autoSaveStatus === 'saving' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' :
+              autoSaveStatus === 'saved' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' :
+              'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+            }`}>
+              {autoSaveStatus === 'saving' && <Loader className="w-4 h-4 mr-2 animate-spin" />}
+              {autoSaveStatus === 'saved' && <span className="w-4 h-4 mr-2">✓</span>}
+              {autoSaveStatus === 'error' && <span className="w-4 h-4 mr-2">⚠</span>}
+              {autoSaveStatus === 'saving' && '自动保存中...'}
+              {autoSaveStatus === 'saved' && '已自动保存'}
+              {autoSaveStatus === 'error' && '保存失败'}
+            </div>
+          )}
+          
           <button
             onClick={saveConfig}
             disabled={isLoading}
@@ -571,7 +664,7 @@ ${context}
             ) : (
               <Save className="w-4 h-4 mr-2" />
             )}
-            保存配置
+            手动保存
           </button>
         </div>
       </div>
@@ -626,6 +719,7 @@ ${context}
           onSendMessage={sendChatMessage}
           onApplySuggestion={applySuggestion}
           isLoading={isChatLoading}
+          shouldHighlight={shouldHighlightAI}
         />
       </div>
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { MessageCircle, Bot, User } from 'lucide-react';
 
 export interface ChatMessage {
@@ -18,6 +18,7 @@ interface AIAssistantChatProps {
   onSendMessage: () => void;
   onApplySuggestion: (suggestion: string) => void;
   isLoading: boolean;
+  shouldHighlight?: boolean; // 新增：是否应该高亮显示
 }
 
 const AIAssistantChat: React.FC<AIAssistantChatProps> = ({
@@ -26,10 +27,31 @@ const AIAssistantChat: React.FC<AIAssistantChatProps> = ({
   onInputChange,
   onSendMessage,
   onApplySuggestion,
-  isLoading
+  isLoading,
+  shouldHighlight = false
 }) => {
+  const [isHighlighted, setIsHighlighted] = useState(false);
+
+  // 监听shouldHighlight变化，触发高亮动效
+  useEffect(() => {
+    if (shouldHighlight) {
+      setIsHighlighted(true);
+      // 1.5秒后自动取消高亮
+      const timer = setTimeout(() => {
+        setIsHighlighted(false);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [shouldHighlight]);
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col h-fit lg:sticky lg:top-4">
+    <div 
+      className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col h-fit lg:sticky lg:top-4 transition-all duration-500 ${
+        isHighlighted 
+          ? 'transform scale-105 shadow-2xl ring-4 ring-purple-500/50 ring-opacity-75' 
+          : ''
+      }`} 
+      data-guide="ai-assistant"
+    >
       <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center">
           <MessageCircle className="w-5 h-5 mr-2 text-indigo-500" />

@@ -35,17 +35,13 @@ class BrowserManager:
         # stealth.min.js路径
         self.stealth_js_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "stealth.min.js")
         
-        # 初始化并启用OCR
+        # 初始化增强数据提取器
         try:
-            from automation.processors.data_extractor import DataExtractor
-            self.data_extractor = DataExtractor()
-            ocr_enabled = self.data_extractor.enable_ocr()
-            if ocr_enabled:
-                print("OCR功能已启用，可识别Canvas和图片格式简历")
-            else:
-                print("OCR功能启用失败，将使用常规方式提取简历信息")
+            from automation.processors.enhanced_data_extractor import EnhancedDataExtractor
+            self.data_extractor = EnhancedDataExtractor()
+            print("增强数据提取器已启用，使用智能信息提取逻辑")
         except Exception as e:
-            print(f"初始化OCR提取功能出错: {e}")
+            print(f"初始化增强数据提取器出错: {e}")
             self.data_extractor = None
         
         # Boss直聘选择器配置
@@ -556,15 +552,36 @@ class BrowserManager:
                     config = json.load(f)
                     print(f"成功加载配置文件: {config_path}")
                     
-                    # 提取并打印岗位规则
+                    # 检查筛选配置类型
+                    ai_enabled = config.get("aiEnabled", False)
                     position_rules = [r for r in config.get("rules", []) if r.get("type") == "岗位" and r.get("enabled")]
-                    if position_rules:
-                        print("已启用的岗位规则:")
+                    
+                    if ai_enabled:
+                        # AI智能筛选已启用
+                        basic_position = config.get("basicPosition", "")
+                        basic_companies = config.get("basicCompanies", [])
+                        filter_criteria = config.get("filterCriteria", "")
+                        
+                        print("✅ AI智能筛选已启用:")
+                        print(f"  - 目标岗位: {basic_position}")
+                        print(f"  - 竞对公司: {', '.join(basic_companies) if basic_companies else '未设置'}")
+                        print(f"  - 筛选标准: {'已配置' if filter_criteria else '未配置'}")
+                        
+                        # 检查AI筛选配置完整性
+                        if not basic_position:
+                            print("⚠️ 警告: AI智能筛选已启用但未设置目标岗位")
+                        elif not filter_criteria:
+                            print("⚠️ 警告: AI智能筛选已启用但未生成筛选标准")
+                        else:
+                            print("✅ AI智能筛选配置完整，将使用AI进行候选人筛选")
+                    elif position_rules:
+                        # 传统规则筛选
+                        print("已启用的传统岗位规则:")
                         for rule in position_rules:
                             print(f"  - 关键词: {rule.get('keywords', [])}")
                             print(f"    必须匹配: {rule.get('mustMatch', False)}")
                     else:
-                        print("警告: 未找到已启用的岗位规则，所有候选人将通过岗位筛选")
+                        print("警告: 未启用AI智能筛选且未找到传统岗位规则，所有候选人将通过岗位筛选")
                     
                     return config
             except Exception as e:

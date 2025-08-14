@@ -18,7 +18,8 @@
   "author": "Your Company",
   "license": "MIT",
   "dependencies": {
-    "find-process": "^1.4.7"
+    "find-process": "^1.4.7",
+    "node-fetch": "^3.3.2"
   },
   "devDependencies": {
     "electron": "^27.0.0",
@@ -31,19 +32,44 @@
       "main.js",
       "preload.js",
       "loading.html",
+      "startup.html",
+      "service-error.html",
       "error.html",
+      "login.html",
+      "browser-reminder.html",
+      "browser-running.html",
       "build/**/*"
     ],
     "extraResources": [
       {
-        "from": "../web-app",
+        "from": "../web-app/out",
         "to": "web-app"
       },
       {
-        "from": "../dist",
-        "to": "server"
+        "from": "../build/sourcing-copilot-server",
+        "to": "server/sourcing-copilot-server"
+      },
+      {
+        "from": "../electron_backend.py",
+        "to": "server/electron_backend.py"
+      },
+      {
+        "from": "../start.py",
+        "to": "server/start.py"
+      },
+      {
+        "from": "../main.py",
+        "to": "server/main.py"
+      },
+      {
+        "from": "../automation/sourcing_copilot.db",
+        "to": "server/sourcing_copilot_template.db",
+        "filter": ["**/*"]
       }
     ],
+    "directories": {
+      "output": "dist"
+    },
     "mac": {
       "category": "public.app-category.productivity",
       "target": "dmg",
@@ -72,4 +98,4 @@
       "allowToChangeInstallationDirectory": true
     }
   }
-} 
+}

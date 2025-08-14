@@ -2,20 +2,18 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useStore } from '../../store/store';
 import { MessageSquare } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 
 export default function AnimatedChatPanel() {
   const router = useRouter();
   const pathname = usePathname();
-  const { setShowAIChat } = useStore();
   const [isVisible, setIsVisible] = useState(false);
   
   // 检测路由变化并决定是否显示按钮
   useEffect(() => {
     // 确保初始加载和每次路由变化时都正确处理
-    if (pathname === '/ai-chat') {
+    if (pathname === '/ai-rules') {
       setIsVisible(false);
     } else {
       const timer = setTimeout(() => {
@@ -30,18 +28,18 @@ export default function AnimatedChatPanel() {
   const handleChatClick = () => {
     setIsVisible(false);
     setTimeout(() => {
-      router.push('/ai-chat');
+      router.push('/ai-rules?highlight=ai');
     }, 10);
   };
 
-  // 如果在AI聊天页面，根本不渲染组件
-  if (pathname === '/ai-chat') {
+  // 如果在AI智能筛选页面，根本不渲染组件
+  if (pathname === '/ai-rules') {
     return null;
   }
 
   return (
     <AnimatePresence mode="wait">
-      {isVisible && pathname !== '/ai-chat' && (
+      {isVisible && pathname !== '/ai-rules' && (
         <motion.div 
           className="fixed bottom-8 z-50 left-1/2 -translate-x-1/2 md:left-[calc(50%+8rem/2)]" 
           initial={{ y: 100, opacity: 0 }}

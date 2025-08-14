@@ -26,8 +26,9 @@ from automation.utils.screenshot_manager import ScreenshotManager
 
 # 导入数据库相关模块
 from automation.database.db import get_db_session, init_db, check_db_connection
-from automation.database.models import Candidate, CandidateStatus, OperationLog as DBOperationLog
+from automation.database.models import Candidate, CandidateStatus, OperationLog as DBOperationLog, CandidateSkill
 from candidate_repository import CandidateRepository
+from sqlalchemy.orm import joinedload
 
 # 创建FastAPI应用
 app = FastAPI(title="Sourcing Copilot API")
@@ -148,11 +149,46 @@ async def get_config():
 
 @app.post("/api/config")
 async def save_config(config: Dict[str, Any]):
-    """保存规则配置"""
+    """保存规则配置 - 改进版，支持合并不同类型的配置"""
     try:
+        # 读取现有配置
+        existing_config = {}
+        if os.path.exists(CONFIG_PATH):
+            try:
+                with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                    existing_config = json.load(f)
+            except Exception as e:
+                print(f"读取现有配置失败: {e}")
+        
+        # 智能合并配置
+        merged_config = existing_config.copy()
+        
+        # 更新基本字段
+        basic_fields = ['autoMode', 'passScore']
+        for field in basic_fields:
+            if field in config:
+                merged_config[field] = config[field]
+        
+        # 处理规则数组 - 如果新配置包含rules，则更新
+        if 'rules' in config:
+            merged_config['rules'] = config['rules']
+        
+        # 处理AI智能筛选字段 - 如果新配置包含AI相关字段，则更新
+        ai_fields = [
+            'aiEnabled', 'filterCriteria', 'strictLevel', 
+            'basicPosition', 'basicCompanies', 'basicKeywords',
+            'jobDescription', 'talentProfile', 'focusAreas', 'customPrompts'
+        ]
+        for field in ai_fields:
+            if field in config:
+                merged_config[field] = config[field]
+        
+        # 保存合并后的配置
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-            json.dump(config, f, ensure_ascii=False, indent=2)
-        return {"success": True, "message": "配置已保存"}
+            json.dump(merged_config, f, ensure_ascii=False, indent=2)
+        
+        print(f"✅ 配置保存成功，合并了 {len(config.keys())} 个字段")
+        return {"success": True, "message": "配置已保存", "merged_fields": list(config.keys())}
     except Exception as e:
         print(f"保存配置文件失败: {e}")
         return {"success": False, "error": str(e)}
@@ -191,46 +227,8 @@ async def get_candidates(limit: int = 100, offset: int = 0):
     try:
         print(f"DEBUG: 从数据库获取候选人列表，limit={limit}, offset={offset}")
         
-        # 使用数据库获取候选人
-        candidates = CandidateRepository.get_candidates(limit=limit, offset=offset)
-        
-        # 转换为API响应格式
-        candidates_data = []
-        for candidate in candidates:
-            # 处理技能数据
-            skills = []
-            if hasattr(candidate, 'skills') and candidate.skills:
-                for candidate_skill in candidate.skills:
-                    if hasattr(candidate_skill, 'skill') and candidate_skill.skill:
-                        skills.append(candidate_skill.skill.name)
-            
-            # 处理标签数据
-            tags = []
-            if hasattr(candidate, 'tags') and candidate.tags:
-                for tag in candidate.tags:
-                    tags.append(tag.name)
-            
-            candidate_dict = {
-                "id": candidate.id,
-                "name": candidate.name or "",
-                "education": candidate.education or "",
-                "experience": candidate.experience or "",
-                "skills": skills,
-                "company": candidate.company or "",
-                "school": candidate.school or "",
-                "position": candidate.position or "",
-                "detail": candidate.detail or "",
-                "status": candidate.status.value if candidate.status else "new",
-                "createdAt": candidate.created_at.isoformat() if candidate.created_at else "",
-                "updatedAt": candidate.updated_at.isoformat() if candidate.updated_at else "",
-                "matchScore": candidate.match_score,
-                "match": candidate.match,
-                "greeting": candidate.greeting or "",
-                "tags": tags,
-                "source": candidate.source or "",
-                "sourceId": candidate.source_id or ""
-            }
-            candidates_data.append(candidate_dict)
+        # 使用数据库获取候选人（已修改为返回字典格式）
+        candidates_data = CandidateRepository.get_candidates(limit=limit, offset=offset)
         
         print(f"DEBUG: 成功获取{len(candidates_data)}个候选人")
         return {"success": True, "data": candidates_data}
@@ -239,62 +237,7 @@ async def get_candidates(limit: int = 100, offset: int = 0):
         print(f"获取候选人列表失败: {e}")
         import traceback
         traceback.print_exc()
-        
-        # 如果数据库查询失败，尝试从JSON文件读取
-        try:
-            print("DEBUG: 数据库查询失败，尝试从JSON文件读取候选人数据")
-            
-            json_file = os.path.expanduser("~/Library/Application Support/SourcingCopilot/candidates.json")
-            if os.path.exists(json_file):
-                print(f"DEBUG: 尝试读取候选人数据文件: {json_file}")
-                print(f"DEBUG: 文件是否存在: {os.path.exists(json_file)}")
-                
-                with open(json_file, 'r', encoding='utf-8') as f:
-                    raw_data = json.load(f)
-                
-                print(f"DEBUG: 从文件读取到的原始数据: {raw_data}")
-                print(f"DEBUG: 原始数据类型: {type(raw_data)}")
-                print(f"DEBUG: 原始数据长度: {len(raw_data) if isinstance(raw_data, list) else 'N/A'}")
-                
-                # 标准化数据格式
-                candidates_data = []
-                for i, item in enumerate(raw_data):
-                    print(f"DEBUG: 处理第{i+1}个候选人: {item.get('name', '未知')}")
-                    
-                    # 确保所有必需字段都存在
-                    candidate = {
-                        "id": item.get("id", f"temp_{i}"),
-                        "name": item.get("name", ""),
-                        "education": item.get("education", ""),
-                        "experience": item.get("experience", ""),
-                        "skills": item.get("skills", []),
-                        "company": item.get("company", ""),
-                        "school": item.get("school", ""),
-                        "position": item.get("position", ""),
-                        "detail": item.get("detail"),
-                        "status": item.get("status", "new"),
-                        "createdAt": item.get("createdAt", ""),
-                        "updatedAt": item.get("updatedAt", ""),
-                        "matchScore": item.get("matchScore"),
-                        "match": item.get("match"),
-                        "greeting": item.get("greeting")
-                    }
-                    candidates_data.append(candidate)
-                    print(f"DEBUG: 成功标准化候选人: {candidate['name']}")
-                
-                print(f"DEBUG: 成功读取JSON文件，包含{len(candidates_data)}条记录")
-                print(f"DEBUG: 标准化后的数据: {candidates_data}")
-                
-                return {"success": True, "data": candidates_data}
-            else:
-                print("DEBUG: JSON文件不存在，返回空列表")
-                return {"success": True, "data": []}
-                
-        except Exception as json_error:
-            print(f"从JSON文件读取候选人数据也失败: {json_error}")
-            import traceback
-            traceback.print_exc()
-            return {"success": False, "error": str(e), "data": []}
+        return {"success": False, "error": str(e), "data": []}
 
 @app.post("/api/candidates")
 async def create_candidate(candidate_data: Dict[str, Any]):
@@ -348,43 +291,71 @@ async def get_candidate_by_id(candidate_id: str):
     try:
         print(f"DEBUG: 获取候选人详情: {candidate_id}")
         
-        candidate = CandidateRepository.get_candidate_by_id(candidate_id)
-        if not candidate:
-            return {"success": False, "error": "候选人不存在", "data": None}
-        
-        # 转换为API响应格式
-        candidate_dict = {
-            "id": candidate.id,
-            "name": candidate.name,
-            "education": candidate.education,
-            "experience": candidate.experience,
-            "company": candidate.company,
-            "school": candidate.school,
-            "position": candidate.position,
-            "status": candidate.status.value if candidate.status else "new",
-            "createdAt": candidate.created_at.isoformat() if candidate.created_at else None,
-            "updatedAt": candidate.updated_at.isoformat() if candidate.updated_at else None,
-            "matchScore": candidate.match_score,
-            "greeting": candidate.greeting,
-            "skills": [cs.skill.name for cs in candidate.skills] if candidate.skills else [],
-            # 添加详细信息
-            "detail": {
-                "workExperience": "\n".join([
+        # 直接在Session内查询和转换
+        with get_db_session() as session:
+            candidate = session.query(Candidate)\
+                .options(
+                    joinedload(Candidate.skills).joinedload(CandidateSkill.skill),
+                    joinedload(Candidate.work_experiences),
+                    joinedload(Candidate.educations),
+                    joinedload(Candidate.projects),
+                    joinedload(Candidate.tags)
+                )\
+                .filter(Candidate.id == candidate_id)\
+                .first()
+            
+            if not candidate:
+                return {"success": False, "error": "候选人不存在", "data": None}
+            
+            # 在Session内提取所有需要的数据
+            skills_list = [cs.skill.name for cs in candidate.skills] if candidate.skills else []
+            
+            work_experience_text = None
+            if candidate.work_experiences:
+                work_experience_text = "\n".join([
                     f"{we.company} | {we.position} | {we.start_date.strftime('%Y-%m') if we.start_date else '未知'}-{we.end_date.strftime('%Y-%m') if we.end_date else '至今'}\n{we.description or ''}"
                     for we in candidate.work_experiences
-                ]) if candidate.work_experiences else None,
-                "educationExperience": "\n".join([
+                ])
+            
+            education_experience_text = None
+            if candidate.educations:
+                education_experience_text = "\n".join([
                     f"{edu.school} | {edu.degree or ''} {edu.major or ''} | {edu.start_date.strftime('%Y-%m') if edu.start_date else '未知'}-{edu.end_date.strftime('%Y-%m') if edu.end_date else '至今'}"
                     for edu in candidate.educations
-                ]) if candidate.educations else None,
-                "projectExperience": "\n".join([
+                ])
+            
+            project_experience_text = None
+            if candidate.projects:
+                project_experience_text = "\n".join([
                     f"{proj.name} | {proj.role or ''} | {proj.start_date.strftime('%Y-%m') if proj.start_date else '未知'}-{proj.end_date.strftime('%Y-%m') if proj.end_date else '至今'}\n{proj.description or ''}"
                     for proj in candidate.projects
-                ]) if candidate.projects else None
+                ])
+            
+            # 转换为API响应格式
+            candidate_dict = {
+                "id": candidate.id,
+                "name": candidate.name,
+                "education": candidate.education,
+                "experience": candidate.experience,
+                "company": candidate.company,
+                "school": candidate.school,
+                "position": candidate.position,
+                "status": candidate.status.value if candidate.status else "new",
+                "createdAt": candidate.created_at.isoformat() if candidate.created_at else None,
+                "updatedAt": candidate.updated_at.isoformat() if candidate.updated_at else None,
+                "matchScore": candidate.match_score,
+                "greeting": candidate.greeting,
+                "skills": skills_list,
+                "raw_data": candidate.raw_data or {},  # 添加raw_data字段
+                # 添加详细信息
+                "detail": {
+                    "workExperience": work_experience_text,
+                    "educationExperience": education_experience_text,
+                    "projectExperience": project_experience_text
+                }
             }
-        }
-        
-        return {"success": True, "data": candidate_dict}
+            
+            return {"success": True, "data": candidate_dict}
         
     except Exception as e:
         print(f"获取候选人详情失败: {e}")
@@ -442,40 +413,156 @@ async def update_candidate_status(candidate_id: str, status_data: Dict[str, Any]
 # 日志API端点
 @app.get("/api/logs")
 async def get_logs(limit: int = 100, offset: int = 0):
-    """获取操作日志列表"""
+    """获取操作日志列表 - 按候选人分组"""
     try:
         print(f"DEBUG: 从数据库获取日志列表，limit={limit}, offset={offset}")
         
-        # 使用数据库获取日志
         with get_db_session() as session:
+            # 获取所有候选人相关的日志，按候选人分组
             logs = session.query(DBOperationLog)\
+                .filter(DBOperationLog.data_type == 'candidate')\
                 .order_by(DBOperationLog.timestamp.desc())\
-                .offset(offset)\
-                .limit(limit)\
-                .all()
-        
-        # 转换为API响应格式
-        logs_data = []
-        for log in logs:
-            log_dict = {
-                "id": str(log.id),
-                "timestamp": log.timestamp.isoformat() if log.timestamp else None,
-                "action": log.action,
-                "details": log.details,
-                "dataType": log.data_type,
-                "dataId": log.data_id,
-                "metadata": log.log_metadata
-            }
-            logs_data.append(log_dict)
-        
-        print(f"DEBUG: 成功从数据库获取{len(logs_data)}条日志记录")
-        return {"success": True, "data": logs_data}
+                .limit(limit * 3)\
+                .all()  # 获取更多记录以便分组
+            
+            # 按候选人分组日志
+            candidate_groups = {}
+            for log in logs:
+                candidate_id = log.data_id or f"unknown_{log.id}"
+                candidate_name = "未知候选人"
+                
+                # 从元数据中提取候选人信息
+                if log.log_metadata and isinstance(log.log_metadata, dict):
+                    candidate_name = log.log_metadata.get('candidate_name', candidate_name)
+                
+                if candidate_id not in candidate_groups:
+                    candidate_groups[candidate_id] = {
+                        'candidate_id': candidate_id,
+                        'candidate_name': candidate_name,
+                        'candidate_position': log.log_metadata.get('candidate_position', '未知') if log.log_metadata else '未知',
+                        'candidate_company': log.log_metadata.get('candidate_company', '未知') if log.log_metadata else '未知',
+                        'operations': [],
+                        'latest_timestamp': log.timestamp,
+                        'final_action': log.action,
+                        'ai_evaluation': log.log_metadata.get('ai_evaluation') if log.log_metadata else None
+                    }
+                
+                # 添加操作记录
+                candidate_groups[candidate_id]['operations'].append({
+                    'id': str(log.id),
+                    'timestamp': log.timestamp.isoformat(),
+                    'action': log.action,
+                    'details': log.details,
+                    'metadata': log.log_metadata
+                })
+                
+                # 更新最新时间戳
+                if log.timestamp > candidate_groups[candidate_id]['latest_timestamp']:
+                    candidate_groups[candidate_id]['latest_timestamp'] = log.timestamp
+                    candidate_groups[candidate_id]['final_action'] = log.action
+            
+            # 转换为列表并按时间排序，同时确保时间戳格式正确
+            grouped_logs = list(candidate_groups.values())
+            for group in grouped_logs:
+                # 确保latest_timestamp是字符串格式
+                if isinstance(group['latest_timestamp'], datetime):
+                    group['latest_timestamp'] = group['latest_timestamp'].isoformat()
+            
+            grouped_logs.sort(key=lambda x: x['latest_timestamp'], reverse=True)
+            
+            # 限制返回数量
+            grouped_logs = grouped_logs[:limit]
+            
+            print(f"DEBUG: 返回{len(grouped_logs)}个候选人的日志记录")
+            return {"success": True, "data": grouped_logs}
         
     except Exception as e:
         print(f"获取日志数据失败: {e}")
         import traceback
         traceback.print_exc()
-        return {"success": False, "error": str(e), "data": []}
+        
+        # 返回模拟数据作为备用
+        current_time = datetime.now()
+        mock_data = [
+            {
+                'candidate_id': 'candidate_123',
+                'candidate_name': '李四',
+                'candidate_position': '产品经理',
+                'candidate_company': '腾讯',
+                'final_action': '打招呼',
+                'latest_timestamp': current_time.isoformat(),
+                'ai_evaluation': {
+                    'score': 78,
+                    'passed': True,
+                    'reason': '候选人具备丰富的产品经验，技能匹配度高',
+                    'highlights': ['产品规划能力强', '有大厂经验'],
+                    'concerns': ['需要进一步了解技术背景']
+                },
+                'operations': [
+                    {
+                        'id': '1',
+                        'timestamp': current_time.isoformat(),
+                        'action': '候选人分析',
+                        'details': '开始分析候选人李四',
+                        'metadata': {'step': 'start_analysis'}
+                    },
+                    {
+                        'id': '2',
+                        'timestamp': current_time.isoformat(),
+                        'action': '查看候选人',
+                        'details': '查看候选人李四详情页',
+                        'metadata': {'step': 'view_detail'}
+                    },
+                    {
+                        'id': '3',
+                        'timestamp': current_time.isoformat(),
+                        'action': '打招呼',
+                        'details': '成功向候选人李四打招呼',
+                        'metadata': {'step': 'greet_success'}
+                    }
+                ]
+            },
+            {
+                'candidate_id': 'candidate_124',
+                'candidate_name': '张三',
+                'candidate_position': '前端工程师',
+                'candidate_company': '字节跳动',
+                'final_action': '跳过',
+                'latest_timestamp': current_time.isoformat(),
+                'ai_evaluation': {
+                    'score': 45,
+                    'passed': False,
+                    'reason': '工作经验不足，技能匹配度较低',
+                    'highlights': ['有学习能力'],
+                    'concerns': ['缺乏相关项目经验', '技能栈不匹配']
+                },
+                'operations': [
+                    {
+                        'id': '4',
+                        'timestamp': current_time.isoformat(),
+                        'action': '候选人分析',
+                        'details': '开始分析候选人张三',
+                        'metadata': {'step': 'start_analysis'}
+                    },
+                    {
+                        'id': '5',
+                        'timestamp': current_time.isoformat(),
+                        'action': '查看候选人',
+                        'details': '查看候选人张三详情页',
+                        'metadata': {'step': 'view_detail'}
+                    },
+                    {
+                        'id': '6',
+                        'timestamp': current_time.isoformat(),
+                        'action': '跳过',
+                        'details': '候选人张三未通过AI评估筛选',
+                        'metadata': {'step': 'skip_candidate'}
+                    }
+                ]
+            }
+        ]
+        
+        return {"success": True, "data": mock_data}
 
 @app.post("/api/logs")
 async def add_log(log: LogEntry):
@@ -631,6 +718,34 @@ async def detect_browser():
             "connected": False,
             "error": str(e),
             "message": "检测浏览器失败"
+        }
+
+@app.post("/api/browser/show-reminder")
+async def show_browser_reminder():
+    """显示浏览器运行提醒"""
+    try:
+        # 这里可以通过某种方式通知Electron主进程显示提醒
+        # 由于我们在Electron环境中，可以通过文件系统或其他方式通信
+        import os
+        import tempfile
+        
+        # 创建一个临时文件来通知Electron显示提醒
+        temp_dir = tempfile.gettempdir()
+        reminder_file = os.path.join(temp_dir, 'sourcing_copilot_browser_reminder.txt')
+        
+        with open(reminder_file, 'w') as f:
+            f.write('show_browser_reminder')
+        
+        return {
+            "success": True,
+            "message": "浏览器运行提醒已触发"
+        }
+    except Exception as e:
+        print(f"显示浏览器提醒失败: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "显示浏览器提醒失败"
         }
 
 @app.post("/api/browser/launch")

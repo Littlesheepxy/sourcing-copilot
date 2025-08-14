@@ -13,7 +13,7 @@ type DashboardCardProps = {
   className?: string;
   headerClassName?: string;
   bodyClassName?: string;
-};
+} & React.HTMLAttributes<HTMLDivElement>;
 
 const DashboardCard: React.FC<DashboardCardProps> = ({
   title,
@@ -25,6 +25,7 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
   className = "",
   headerClassName = "",
   bodyClassName = "",
+  ...htmlProps
 }) => {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -43,7 +44,10 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
   const bodyBaseClass = collapsed ? "hidden" : "";
   
   return (
-    <div className={`${baseCardClass} ${variantClasses[variant]} ${className}`}>
+    <div 
+      className={`${baseCardClass} ${variantClasses[variant]} ${className}`}
+      {...htmlProps}
+    >
       {variant !== "default" ? (
         <div className="bg-white/80 dark:bg-slate-800/50 backdrop-blur-sm p-5 rounded-lg border border-blue-200 dark:border-blue-800">
           <div className={`${headerBaseClass} ${headerClassName}`}>

@@ -6,15 +6,18 @@
 
 import { LogEntry } from './log-service';
 
-// API端点配置
-const API_CONFIG = {
-  // 强制使用外部Python API，不使用Next.js内置路由
-  baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+// API配置
+export const API_CONFIG = {
+  // 强制使用外部后端API地址，避免被Next.js内置路由拦截
+  baseUrl: 'http://127.0.0.1:8000',
   endpoints: {
-    logs: '/api/logs',
+    rules: '/api/rules',
+    automation: '/api/automation',
     candidates: '/api/candidates',
+    logs: '/api/logs',
     operations: '/api/operations',
   },
+  timeout: 30000, // 30秒超时
   // 添加重试配置
   retryAttempts: 3,
   retryDelay: 1000, // 1秒
@@ -29,6 +32,17 @@ interface ApiResponse<T> {
   data?: T;
   error?: string;
   message?: string;
+}
+
+// AI评估结果接口
+export interface AIEvaluationResult {
+  score?: number;
+  passed?: boolean;
+  reason?: string;
+  rejectReason?: string;  // 不通过时的拒绝原因
+  highlights?: string[];
+  concerns?: string[];
+  result?: string;
 }
 
 // 候选人数据接口
@@ -53,6 +67,10 @@ export interface CandidateData {
   matchScore?: number;  // 匹配度得分
   match?: number;       // 兼容旧版匹配度
   greeting?: string;    // 打招呼语
+  raw_data?: {          // 原始数据，包含AI评估结果
+    ai_evaluation?: AIEvaluationResult;
+    [key: string]: any;
+  };
 }
 
 // 操作日志接口
@@ -97,8 +115,9 @@ export class ApiService {
     retryCount: number = 0
   ): Promise<ApiResponse<T>> {
     try {
+      // 强制使用绝对URL，避免被Next.js内置路由拦截
       const url = `${this.baseUrl}${endpoint}`;
-      console.log(`DEBUG: 开始API请求: ${method} ${url} (尝试 ${retryCount + 1}/${API_CONFIG.retryAttempts + 1})`);
+      console.log(`DEBUG: 强制使用外部API: ${method} ${url} (尝试 ${retryCount + 1}/${API_CONFIG.retryAttempts + 1})`);
       
       const options: RequestInit = {
         method,
@@ -106,9 +125,10 @@ export class ApiService {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        credentials: 'include', // 包含跨域Cookie
+        mode: 'cors', // 显式设置CORS模式
+        credentials: 'omit', // 不发送跨域Cookie，避免CORS问题
         // 添加超时设置
-        signal: AbortSignal.timeout(10000), // 10秒超时
+        signal: AbortSignal.timeout(30000), // 30秒超时
       };
       
       if (data) {

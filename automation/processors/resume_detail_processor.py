@@ -7,6 +7,7 @@ import asyncio
 import time
 import os
 import re
+from automation.processors.enhanced_data_extractor import EnhancedDataExtractor
 
 class ResumeDetailProcessor:
     """简历详情页处理器，处理简历详情页相关功能"""
@@ -20,6 +21,10 @@ class ResumeDetailProcessor:
         """
         self.processor = resume_processor
         self.processing_detail = False  # 添加详情页处理状态标记
+        self.greeting_in_progress = False  # 添加打招呼进行中状态标记
+        
+        # 初始化增强数据提取器
+        self.enhanced_extractor = EnhancedDataExtractor()
         
     async def process_detail_page(self, page, config, card_resume_data=None):
         """
@@ -61,8 +66,8 @@ class ResumeDetailProcessor:
                 self.processing_detail = False
                 return True
                 
-            # 等待页面加载完成（不进行滚动操作）
-            await asyncio.sleep(3.0)  # 从1.0秒增加到3.0秒，确保页面充分加载
+            # 等待页面加载完成（优化：减少到1.5秒）
+            await asyncio.sleep(1.5)  # 优化：从3.0秒减少到1.5秒，加快处理速度
             
             # 检查停止信号
             if not self.processor.is_processing or (hasattr(self.processor, 'browser') and hasattr(self.processor.browser, 'is_running') and not self.processor.browser.is_running):
@@ -78,86 +83,45 @@ class ResumeDetailProcessor:
                 resume_data.update(card_resume_data)
                 print(f"📋 卡片数据: 姓名={card_resume_data.get('name')}, 职位={card_resume_data.get('position')}")
             
-            # 首先检查是否为HTML格式简历（BOSS直聘标准结构）
-            boss_html_resume = await page.query_selector('.resume-detail-wrap, [data-v-bcc3a4cc]')
+            # 使用增强数据提取器从详情页提取数据
+            print("🔍 使用增强提取器处理详情页...")
+            start_time = time.time()
             
-            # 如果主页面没有，检查弹窗中是否有简历内容
-            if not boss_html_resume:
-                print("🔍 主页面未找到简历内容，检查弹窗...")
-                dialog_selectors = [
-                    '.dialog-wrap',
-                    '.modal',
-                    '.popup',
-                    '[data-type="boss-dialog"]',
-                    '.ka-dialog',
-                    '.ui-dialog',
-                    '.layui-layer',
-                    '.dialog'
-                ]
+            try:
+                # 使用增强数据提取器提取详情页数据
+                detail_data = await self.enhanced_extractor.extract_resume_data(page, None, self.processor.selectors)
                 
-                for dialog_selector in dialog_selectors:
-                    try:
-                        dialog = await page.query_selector(dialog_selector)
-                        if dialog:
-                            is_visible = await dialog.is_visible()
-                            if is_visible:
-                                print(f"✅ 找到可见弹窗: {dialog_selector}")
-                                # 在弹窗内查找简历内容
-                                boss_html_resume = await dialog.query_selector('.resume-detail-wrap, [data-v-bcc3a4cc]')
-                                if boss_html_resume:
-                                    print(f"✅ 在弹窗中找到BOSS直聘简历内容")
-                                    break
-                    except Exception as e:
-                        print(f"检查弹窗 {dialog_selector} 时出错: {e}")
-                        continue
-            
-            if boss_html_resume:
-                print("🔍 检测到BOSS直聘HTML格式简历，开始提取内容...")
-                
-                # 使用data_extractor提取HTML内容
-                print("⏳ 正在提取简历HTML内容，这可能需要几秒钟...")
-                start_time = time.time()
-                
-                # 使用data_extractor提取HTML内容
-                page_data = await self.processor.data_extractor.extract_from_detail_page(page, self.processor.selectors)
-                
-                if page_data and page_data.get('html_content'):
-                    # 合并提取的数据
-                    resume_data.update(page_data)
-                    print(f"✅ HTML提取完成，耗时: {time.time() - start_time:.2f}秒")
-                    print(f"📄 提取的HTML内容长度: {len(page_data.get('html_content', ''))}")
+                if detail_data:
+                    print(f"✅ 增强提取完成，耗时: {time.time() - start_time:.2f}秒")
                     
-                    # 记录提取的内容摘要到日志
-                    html_preview = page_data.get('html_content', '')[:500] + "..." if len(page_data.get('html_content', '')) > 500 else page_data.get('html_content', '')
-                    print(f"📝 HTML内容预览: {html_preview}")
+                    # 智能合并卡片数据和详情页数据
+                    if card_resume_data:
+                        resume_data = await self.enhanced_extractor.merge_resume_data(card_resume_data, detail_data)
+                        print("📋 已合并卡片数据和详情页数据")
+                    else:
+                        resume_data = detail_data
                     
-                    # 标记类型为HTML简历
-                    resume_data['is_boss_html_resume'] = True
+                    # 输出提取的文本内容
+                    if detail_data.get('fullText'):
+                        print("=" * 80)
+                        print("📄 【增强提取】详情页文本内容:")
+                        print("=" * 80)
+                        # 显示前1500字符的内容
+                        preview_text = detail_data.get('fullText')[:1500]
+                        if len(detail_data.get('fullText')) > 1500:
+                            preview_text += "\n...(还有更多内容)"
+                        print(preview_text)
+                        print("=" * 80)
+                        print(f"📄 提取的文本总长度: {len(detail_data.get('fullText'))}")
+                    
+                    print(f"📊 增强提取结果: 姓名={resume_data.get('name')}, 学历={resume_data.get('education')}, 职位={resume_data.get('position')}, 工作经验={resume_data.get('experience')}年")
                 else:
-                    print(f"⚠️ HTML提取完成，耗时: {time.time() - start_time:.2f}秒，但未能提取到HTML内容，将继续尝试其他方法")
-            else:
-                # 标准详情页数据提取
-                try:
-                    print("🔍 标准详情页，开始提取数据...")
-                    start_time = time.time()
+                    print(f"⚠️ 增强提取完成，耗时: {time.time() - start_time:.2f}秒，但未能提取到数据")
                     
-                    # 使用DataExtractor提取标准数据
-                    page_data = await self.processor.data_extractor.extract_from_detail_page(page, self.processor.selectors)
-                    
-                    # 合并提取的数据
-                    if page_data:
-                        resume_data.update(page_data)
-                        print(f"✅ 标准数据提取完成，耗时: {time.time() - start_time:.2f}秒")
-                        
-                        # 记录提取的详细信息到日志
-                        if page_data.get('fullText'):
-                            text_preview = page_data.get('fullText')[:300] + "..." if len(page_data.get('fullText')) > 300 else page_data.get('fullText')
-                            print(f"📝 提取的文本内容预览: {text_preview}")
-                            print(f"📄 提取的文本总长度: {len(page_data.get('fullText'))}")
-                    
-                    print(f"📊 从详情页提取的数据: 姓名={resume_data.get('name')}, 职位={resume_data.get('position')}, 公司={resume_data.get('company')}")
-                except Exception as e:
-                    print(f"❌ 提取简历详情数据出错: {e}")
+            except Exception as e:
+                print(f"❌ 增强提取失败: {e}")
+                import traceback
+                traceback.print_exc()
             
             # 如果没有足够的数据进行评估，但有卡片数据，则使用卡片数据进行评估
             if not resume_data.get('name') and card_resume_data and card_resume_data.get('name'):
@@ -185,6 +149,20 @@ class ResumeDetailProcessor:
             # 使用静态方法评估简历
             print("🤖 开始进行大模型评估...")
             pass_filter, reject_reason = await EvaluationHelper.evaluate_resume(resume_data, config)
+            
+            # 获取详细的AI评估结果用于记录
+            ai_evaluation_result = None
+            try:
+                ai_evaluation_result = await EvaluationHelper.evaluate_keywords_ai(resume_data, config)
+                print(f"🤖 获取到AI评估详细结果: {ai_evaluation_result}")
+            except Exception as eval_error:
+                print(f"⚠️ 获取AI评估详细结果失败: {eval_error}")
+                # 构建基本的评估结果
+                ai_evaluation_result = {
+                    "score": 0,
+                    "passed": pass_filter,
+                    "reason": reject_reason if not pass_filter else "通过评估"
+                }
             
             # 检查停止信号
             if not self.processor.is_processing or (hasattr(self.processor, 'browser') and hasattr(self.processor.browser, 'is_running') and not self.processor.browser.is_running):
@@ -263,19 +241,26 @@ class ResumeDetailProcessor:
                     
                 if greet_button:
                     print(f"💬 开始打招呼...")
-                    success = await self.processor.interaction_handler.greet_candidate(greet_button, resume_data)
+                    # 立即设置状态为False，防止在打招呼过程中触发滑动
+                    self.processing_detail = False
+                    # 设置打招呼进行中状态
+                    self.greeting_in_progress = True
+                    
+                    success = await self.processor.interaction_handler.greet_candidate(greet_button, resume_data, page)
                     if success:
                         print(f"✅ 成功向候选人 {resume_data.get('name')} 打招呼")
                     else:
                         print(f"❌ 向候选人 {resume_data.get('name')} 打招呼失败")
                     
+                    # 重置打招呼状态
+                    self.greeting_in_progress = False
+                    
                     self.processor.processed_ids.add(detail_id)
                     self.processor.processed_count += 1
-                    # 记录打招呼的候选人
-                    self.processor.log_candidate(resume_data, "greet", "通过评估筛选")
-                    # 等待按钮操作完成
+                    # 记录打招呼的候选人，包含AI评估详细结果
+                    self.processor.log_candidate(resume_data, "greet", "通过评估筛选", ai_evaluation_result)
+                    # 等待操作完成
                     await asyncio.sleep(2)
-                    self.processing_detail = False
                     return True
                 else:
                     print("❌ 未找到打招呼按钮，尝试关闭详情页...")
@@ -292,10 +277,10 @@ class ResumeDetailProcessor:
                 print(f"❌ 候选人 {resume_data.get('name')} 未通过筛选: {reject_reason}")
                 self.processor.processed_ids.add(detail_id)
                 self.processor.processed_count += 1
-                # 记录跳过的候选人，增加详细日志
+                # 记录跳过的候选人，增加详细日志，包含AI评估详细结果
                 if "关键词评分不足" in reject_reason:
                     print(f"📊 详细原因: {reject_reason}")
-                self.processor.log_candidate(resume_data, "skip", reject_reason)
+                self.processor.log_candidate(resume_data, "skip", reject_reason, ai_evaluation_result)
                 
                 print("🔄 准备关闭详情页...")
                 # 尝试关闭详情页
@@ -324,6 +309,14 @@ class ResumeDetailProcessor:
                 pass
             
             self.processing_detail = False
+        finally:
+            # 确保在任何情况下都重置状态
+            if self.processing_detail:
+                print("🔄 在finally块中重置详情页处理状态")
+                self.processing_detail = False
+            if hasattr(self, 'greeting_in_progress') and self.greeting_in_progress:
+                print("🔄 在finally块中重置打招呼进行中状态")
+                self.greeting_in_progress = False
         return False
         
     async def process_detail_page_iframe(self, iframe, parent_page, config, card_resume_data=None):
@@ -344,24 +337,29 @@ class ResumeDetailProcessor:
             self.processing_detail = True
             print("🔍 开始处理iframe中的详情页")
             
-            # 从iframe URL中提取ID，用于去重
-            iframe_url = iframe.url
-            print(f"📄 iframe URL: {iframe_url}")
-            
-            id_match = re.search(r'id=(\w+)', iframe_url)
-            if not id_match:
-                # 尝试从父页面URL提取
-                parent_url = parent_page.url
-                id_match = re.search(r'id=(\w+)', parent_url)
+            # 添加状态保护，确保在任何异常情况下都能重置状态
+            try:
+                # 从iframe URL中提取ID，用于去重
+                iframe_url = iframe.url
+                print(f"📄 iframe URL: {iframe_url}")
                 
-            if id_match:
-                detail_id = id_match.group(1)
-            else:
-                # 使用卡片ID或时间戳作为备用ID
-                if card_resume_data and card_resume_data.get('id'):
-                    detail_id = f"card_{card_resume_data.get('id')}"
+                id_match = re.search(r'id=(\w+)', iframe_url)
+                if not id_match:
+                    # 尝试从父页面URL提取
+                    parent_url = parent_page.url
+                    id_match = re.search(r'id=(\w+)', parent_url)
+                    
+                if id_match:
+                    detail_id = id_match.group(1)
                 else:
-                    detail_id = f"iframe_{int(time.time())}"
+                    # 使用卡片ID或时间戳作为备用ID
+                    if card_resume_data and card_resume_data.get('id'):
+                        detail_id = f"card_{card_resume_data.get('id')}"
+                    else:
+                        detail_id = f"iframe_{int(time.time())}"
+            except Exception as e:
+                print(f"⚠️ 从iframe URL中提取ID时出错: {e}")
+                return False
             
             # 备份卡片数据中的关键字段，确保不会丢失
             original_position = None
@@ -380,9 +378,9 @@ class ResumeDetailProcessor:
             # 记录当前处理的详情页ID
             current_detail_id = detail_id
             
-            # 检查页面是否已加载完成（减少等待时间，不进行滚动）
+            # 检查页面是否已加载完成（优化：减少等待时间）
             try:
-                await asyncio.sleep(3.0)  # 从1.0秒增加到3.0秒，确保iframe充分加载
+                await asyncio.sleep(1.5)  # 优化：从3.0秒减少到1.5秒，确保iframe充分加载
                 
                 # 检查停止信号
                 if not self.processor.is_processing or (hasattr(self.processor, 'browser') and hasattr(self.processor.browser, 'is_running') and not self.processor.browser.is_running):
@@ -415,52 +413,48 @@ class ResumeDetailProcessor:
             
             print(f"📄 iframe当前URL: {iframe.url}")
             
-            # 尝试提取详情页数据
+            # 使用增强数据提取器从iframe提取详情页数据
             try:
-                # 使用DataExtractor提取标准数据
-                print("🔍 开始提取iframe中标准数据...")
+                print("🔍 使用增强提取器处理iframe详情页...")
                 start_time = time.time()
                 
-                # 设置超时时间为10秒
-                extract_timeout = 10
+                # 优化：设置超时时间为6秒
+                extract_timeout = 6
                 try:
-                    print("⏳ 正在提取简历标准数据，这可能需要几秒钟...")
+                    print("⏳ 正在使用增强提取器提取简历数据，这可能需要几秒钟...")
                     # 使用asyncio.wait_for包装提取过程，如果超时则抛出异常
-                    page_data = await asyncio.wait_for(
-                        self.processor.data_extractor.extract_from_detail_page(iframe, self.processor.selectors),
+                    detail_data = await asyncio.wait_for(
+                        self.enhanced_extractor.extract_resume_data(iframe, None, self.processor.selectors),
                         timeout=extract_timeout
                     )
                 except asyncio.TimeoutError:
-                    print(f"⚠️ 数据提取超时，已等待{extract_timeout}秒，跳过提取")
-                    page_data = None
+                    print(f"⚠️ 增强提取超时，已等待{extract_timeout}秒，跳过提取")
+                    detail_data = None
                 except Exception as e:
-                    print(f"❌ 数据提取发生错误: {e}")
-                    page_data = None
+                    print(f"❌ 增强提取发生错误: {e}")
+                    detail_data = None
                 
-                if page_data:
-                    # 合并提取的数据
-                    resume_data.update(page_data)
-                    print(f"✅ 提取完成，耗时: {time.time() - start_time:.2f}秒")
+                if detail_data:
+                    print(f"✅ 增强提取完成，耗时: {time.time() - start_time:.2f}秒")
                     
-                    # 记录提取的详细信息到日志
-                    if page_data.get('fullText'):
-                        text_preview = page_data.get('fullText')[:300] + "..." if len(page_data.get('fullText')) > 300 else page_data.get('fullText')
-                        print(f"📝 提取的文本内容预览: {text_preview}")
-                        print(f"📄 提取的文本总长度: {len(page_data.get('fullText'))}")
-                    
-                    print(f"📊 从iframe详情页提取的标准数据: 姓名={resume_data.get('name')}, 职位={resume_data.get('position')}, 公司={resume_data.get('company')}")
-            except Exception as e:
-                print(f"❌ 从iframe提取详情页数据出错: {e}")
-                
-                # 尝试使用旧方法提取
-                detail_resume_data = await self.processor.data_extractor.extract_detail_page_data(iframe, self.processor.selectors)
-                if detail_resume_data:
-                    # 合并卡片数据和详情页数据
+                    # 智能合并卡片数据和详情页数据
                     if card_resume_data:
-                        resume_data = self.processor.data_extractor.merge_resume_data(card_resume_data, detail_resume_data)
+                        resume_data = await self.enhanced_extractor.merge_resume_data(card_resume_data, detail_data)
                         print("✅ 已合并卡片数据和iframe详情页数据")
                     else:
-                        resume_data = detail_resume_data
+                        resume_data = detail_data
+                    
+                    # 记录提取的详细信息到日志
+                    if detail_data.get('fullText'):
+                        text_preview = detail_data.get('fullText')[:300] + "..." if len(detail_data.get('fullText')) > 300 else detail_data.get('fullText')
+                        print(f"📝 提取的文本内容预览: {text_preview}")
+                        print(f"📄 提取的文本总长度: {len(detail_data.get('fullText'))}")
+                    
+                    print(f"📊 增强提取结果: 姓名={resume_data.get('name')}, 学历={resume_data.get('education')}, 职位={resume_data.get('position')}, 工作经验={resume_data.get('experience')}年")
+            except Exception as e:
+                print(f"❌ 从iframe增强提取详情页数据出错: {e}")
+                import traceback
+                traceback.print_exc()
             
             # 确保有链接信息
             if not resume_data.get('link'):
@@ -506,6 +500,20 @@ class ResumeDetailProcessor:
             # 使用静态方法评估简历
             print("🤖 开始进行大模型评估...")
             pass_filter, reject_reason = await EvaluationHelper.evaluate_resume(resume_data, config)
+            
+            # 获取详细的AI评估结果用于记录
+            ai_evaluation_result = None
+            try:
+                ai_evaluation_result = await EvaluationHelper.evaluate_keywords_ai(resume_data, config)
+                print(f"🤖 获取到AI评估详细结果: {ai_evaluation_result}")
+            except Exception as eval_error:
+                print(f"⚠️ 获取AI评估详细结果失败: {eval_error}")
+                # 构建基本的评估结果
+                ai_evaluation_result = {
+                    "score": 0,
+                    "passed": pass_filter,
+                    "reason": reject_reason if not pass_filter else "通过评估"
+                }
             
             # 检查停止信号
             if not self.processor.is_processing or (hasattr(self.processor, 'browser') and hasattr(self.processor.browser, 'is_running') and not self.processor.browser.is_running):
@@ -627,19 +635,26 @@ class ResumeDetailProcessor:
                 
                 if greet_button:
                     print(f"💬 开始打招呼...")
-                    success = await self.processor.interaction_handler.greet_candidate(greet_button, resume_data)
+                    # 立即设置状态为False，防止在打招呼过程中触发滑动
+                    self.processing_detail = False
+                    # 设置打招呼进行中状态
+                    self.greeting_in_progress = True
+                    
+                    success = await self.processor.interaction_handler.greet_candidate(greet_button, resume_data, parent_page)
                     if success:
                         print(f"✅ 成功向候选人 {resume_data.get('name')} 打招呼")
                     else:
                         print(f"❌ 向候选人 {resume_data.get('name')} 打招呼失败")
                     
+                    # 重置打招呼状态
+                    self.greeting_in_progress = False
+                    
                     self.processor.processed_ids.add(detail_id)
                     self.processor.processed_count += 1
-                    # 记录打招呼的候选人
-                    self.processor.log_candidate(resume_data, "greet", "通过评估筛选")
+                    # 记录打招呼的候选人，包含AI评估详细结果
+                    self.processor.log_candidate(resume_data, "greet", "通过评估筛选", ai_evaluation_result)
                     # 等待操作完成
                     await asyncio.sleep(2)
-                    self.processing_detail = False
                     return True
                 else:
                     print("❌ 未找到打招呼按钮，尝试关闭详情页...")
@@ -686,5 +701,13 @@ class ResumeDetailProcessor:
             
             self.processing_detail = False
             return False
+        finally:
+            # 确保在任何情况下都重置状态
+            if self.processing_detail:
+                print("🔄 在finally块中重置详情页处理状态")
+                self.processing_detail = False
+            if hasattr(self, 'greeting_in_progress') and self.greeting_in_progress:
+                print("🔄 在finally块中重置打招呼进行中状态")
+                self.greeting_in_progress = False
 
 

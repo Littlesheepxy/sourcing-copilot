@@ -7,6 +7,7 @@ export default function CandidatesPage() {
   const [candidates, setCandidates] = useState<CandidateData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedCandidate, setSelectedCandidate] = useState<CandidateData | null>(null);
   
   // 加载候选人数据
   useEffect(() => {
@@ -179,10 +180,13 @@ export default function CandidatesPage() {
                     职位
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    技能
+                    公司
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    匹配度
+                    学历
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    AI评估
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     状态
@@ -215,26 +219,68 @@ export default function CandidatesPage() {
                         <div className="text-sm text-gray-900 dark:text-white">
                           {candidate.position || '未知职位'}
                         </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
-                          {candidate.company || '未知公司'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 dark:text-white">
+                          {(() => {
+                            const company = candidate.company || '未知公司';
+                            // 如果公司信息包含分号分隔的多个公司，进行格式化处理
+                            if (company.includes(';')) {
+                              const companies = company.split(';').map(c => c.trim()).filter(c => c);
+                              if (companies.length > 1) {
+                                return (
+                                  <div className="space-y-1 relative group">
+                                    {companies.slice(0, 2).map((comp, index) => (
+                                      <div key={index} className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                                        {comp}
+                                      </div>
+                                    ))}
+                                    {companies.length > 2 && (
+                                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                                        +{companies.length - 2} 更多
+                                      </div>
+                                    )}
+                                    {/* 工具提示：显示完整公司列表 */}
+                                    <div className="absolute z-10 invisible group-hover:visible bg-black text-white text-xs rounded py-2 px-3 -top-2 left-full ml-2 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <div className="space-y-1">
+                                        {companies.map((comp, index) => (
+                                          <div key={index}>• {comp}</div>
+                                        ))}
+                                      </div>
+                                      <div className="absolute -left-1 top-3 w-2 h-2 bg-black transform rotate-45"></div>
+                                    </div>
+                                  </div>
+                                );
+                              }
+                            }
+                            return company;
+                          })()}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex flex-wrap gap-1">
-                          {(candidate.skills || []).map((skill, index) => (
-                            <span key={index} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                              {skill}
+                        <div className="text-sm text-gray-900 dark:text-white">
+                          {candidate.education || '未知学历'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {candidate.raw_data?.ai_evaluation ? (
+                          <div className="flex items-center space-x-2">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              candidate.raw_data.ai_evaluation.passed 
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                                : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                            }`}>
+                              {candidate.raw_data.ai_evaluation.passed ? '✅ 通过' : '❌ 不通过'}
                             </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="w-2 h-2 rounded-full mr-2 bg-gray-500"></div>
-                          <span className="text-sm text-gray-900 dark:text-white">
-                            未评估
-                          </span>
-                        </div>
+                            {candidate.raw_data.ai_evaluation.score !== undefined && (
+                              <span className="text-xs font-bold text-blue-700 dark:text-blue-300">
+                                {candidate.raw_data.ai_evaluation.score}分
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-500 dark:text-gray-400">未评估</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -256,7 +302,10 @@ export default function CandidatesPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-3">
+                        <button 
+                          className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-3"
+                          onClick={() => setSelectedCandidate(candidate)}
+                        >
                           查看
                         </button>
                         <button className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300">
@@ -267,7 +316,7 @@ export default function CandidatesPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center">
+                    <td colSpan={7} className="px-6 py-12 text-center">
                       <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                       </svg>
@@ -304,6 +353,182 @@ export default function CandidatesPage() {
             </div>
           </div>
         </div>
+
+        {/* 候选人详情模态框 */}
+        {selectedCandidate && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-slate-800 rounded-lg p-6 max-w-4xl w-full max-h-[80vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center">
+                  <h3 className="text-2xl font-bold">{selectedCandidate.name}</h3>
+                  <span className={`ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    selectedCandidate.status === 'contacted' 
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                      : selectedCandidate.status === 'processing'
+                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' 
+                        : selectedCandidate.status === 'rejected'
+                          ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                          : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                  }`}>
+                    {selectedCandidate.status === 'contacted' 
+                      ? '已联系' 
+                      : selectedCandidate.status === 'processing'
+                        ? '待处理' 
+                        : selectedCandidate.status === 'rejected'
+                          ? '已拒绝'
+                          : '新候选人'}
+                  </span>
+                </div>
+                <button 
+                  onClick={() => setSelectedCandidate(null)}
+                  className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="space-y-6">
+                {/* AI评估结果 */}
+                {selectedCandidate.raw_data?.ai_evaluation && (
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-lg font-semibold text-blue-800 dark:text-blue-300">🤖 AI智能评估</h4>
+                      <div className="flex items-center space-x-3">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                          selectedCandidate.raw_data.ai_evaluation.passed 
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                        }`}>
+                          {selectedCandidate.raw_data.ai_evaluation.passed ? '✅ 通过' : '❌ 不通过'}
+                        </span>
+                        {selectedCandidate.raw_data.ai_evaluation.score !== undefined && (
+                          <span className="text-lg font-bold text-blue-700 dark:text-blue-300 bg-white dark:bg-gray-800 px-3 py-1 rounded">
+                            {selectedCandidate.raw_data.ai_evaluation.score}分
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {(selectedCandidate.raw_data.ai_evaluation.reason || selectedCandidate.raw_data.ai_evaluation.rejectReason) && (
+                      <div className="mb-3">
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">评估原因</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 p-3 rounded">
+                          {selectedCandidate.raw_data.ai_evaluation.reason || selectedCandidate.raw_data.ai_evaluation.rejectReason}
+                        </p>
+                      </div>
+                    )}
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {selectedCandidate.raw_data.ai_evaluation.highlights && selectedCandidate.raw_data.ai_evaluation.highlights.length > 0 && (
+                        <div>
+                          <p className="text-sm font-medium text-green-700 dark:text-green-300 mb-2">✨ 候选人优势</p>
+                          <ul className="space-y-1">
+                            {selectedCandidate.raw_data.ai_evaluation.highlights.map((highlight, index) => (
+                              <li key={index} className="text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 p-2 rounded">
+                                • {highlight}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      
+                      {selectedCandidate.raw_data.ai_evaluation.concerns && selectedCandidate.raw_data.ai_evaluation.concerns.length > 0 && (
+                        <div>
+                          <p className="text-sm font-medium text-orange-700 dark:text-orange-300 mb-2">⚠️ 关注点</p>
+                          <ul className="space-y-1">
+                            {selectedCandidate.raw_data.ai_evaluation.concerns.map((concern, index) => (
+                              <li key={index} className="text-xs text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 p-2 rounded">
+                                • {concern}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 基本信息 */}
+                <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
+                  <h4 className="text-lg font-semibold mb-3">基本信息</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">姓名</p>
+                      <p className="text-sm font-normal">{selectedCandidate.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">学历</p>
+                      <p className="text-sm font-normal">{selectedCandidate.education || "未知"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">工作经验</p>
+                      <p className="text-sm font-normal">{selectedCandidate.experience || "未知"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">当前/上一家公司</p>
+                      <div className="text-sm font-normal">
+                        {(() => {
+                          const company = selectedCandidate.company || '未知';
+                          // 如果公司信息包含分号分隔的多个公司，进行格式化处理
+                          if (company.includes(';')) {
+                            const companies = company.split(';').map(c => c.trim()).filter(c => c);
+                            if (companies.length > 1) {
+                              return (
+                                <div className="space-y-1 relative group">
+                                  {companies.map((comp, index) => (
+                                    <div key={index} className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                                      {comp}
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            }
+                          }
+                          return company;
+                        })()}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">毕业院校</p>
+                      <p className="text-sm font-normal">{selectedCandidate.school || "未知"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">期望职位</p>
+                      <p className="text-sm font-normal">{selectedCandidate.position || "未知"}</p>
+                    </div>
+                  </div>
+                  
+                  {selectedCandidate.skills && selectedCandidate.skills.length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">技能</p>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedCandidate.skills.map((skill, index) => (
+                          <span 
+                            key={index}
+                            className="px-2 py-1 text-xs bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300 rounded"
+                          >
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={() => setSelectedCandidate(null)}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  关闭
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

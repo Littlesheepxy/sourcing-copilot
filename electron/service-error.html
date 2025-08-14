@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>服务启动失败 - Sourcing Copilot</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            text-align: center;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            animation: fadeInUp 0.8s ease-out;
+            max-width: 500px;
+            padding: 40px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        .error-icon {
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 30px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        .error-icon::before {
+            content: "⚠️";
+            font-size: 40px;
+        }
+        
+        h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            letter-spacing: -0.5px;
+        }
+        
+        .subtitle {
+            font-size: 16px;
+            opacity: 0.9;
+            margin-bottom: 30px;
+            font-weight: 400;
+        }
+        
+        .error-details {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            text-align: left;
+            width: 100%;
+        }
+        
+        .error-details h3 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: #fff;
+        }
+        
+        .error-details ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .error-details li {
+            font-size: 14px;
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+            opacity: 0.9;
+            line-height: 1.4;
+        }
+        
+        .error-details li::before {
+            content: "•";
+            position: absolute;
+            left: 0;
+            color: #fff;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .btn-primary:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+        
+        .status-text {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-top: 20px;
+            font-style: italic;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.05);
+                opacity: 0.8;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="error-icon"></div>
+        <h1>服务启动失败</h1>
+        <div class="subtitle">后端服务无法正常启动</div>
+        
+        <div class="error-details">
+            <h3>解决方案：</h3>
+            <ul>
+                <li>重启Mac应用（推荐首选方案）</li>
+                <li>检查Python环境是否正确安装</li>
+                <li>确认应用文件完整性</li>
+                <li>检查系统权限设置</li>
+                <li>确认端口未被其他程序占用</li>
+                <li>检查防火墙或安全软件设置</li>
+            </ul>
+        </div>
+        
+        <div class="actions">
+            <button class="btn btn-primary" onclick="retryStart()">
+                🔄 重试启动
+            </button>
+            <button class="btn btn-secondary" onclick="showLogs()">
+                📋 查看日志
+            </button>
+            <button class="btn btn-secondary" onclick="exitApp()">
+                ❌ 退出应用
+            </button>
+        </div>
+        
+        <div class="status-text" id="statusText">
+            建议重启Mac应用以恢复服务，或联系技术支持
+        </div>
+    </div>
+    
+    <script>
+        function retryStart() {
+            const statusEl = document.getElementById('statusText');
+            statusEl.textContent = '正在重试启动服务...';
+            
+            // 通知主进程重试启动
+            if (window.electronAPI) {
+                window.electronAPI.retryBackend();
+            }
+        }
+        
+        function showLogs() {
+            const statusEl = document.getElementById('statusText');
+            statusEl.textContent = '正在打开日志文件...';
+            
+            // 通知主进程显示日志
+            if (window.electronAPI) {
+                window.electronAPI.showLogs();
+            }
+        }
+        
+        function exitApp() {
+            // 通知主进程退出应用
+            if (window.electronAPI) {
+                window.electronAPI.exitApp();
+            }
+        }
+        
+        // 监听窗口加载完成
+        window.addEventListener('load', () => {
+            console.log('服务错误页面已加载');
+        });
+    </script>
+</body>
+</html> 

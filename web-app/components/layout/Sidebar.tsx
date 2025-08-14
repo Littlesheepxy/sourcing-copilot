@@ -138,6 +138,14 @@ export default function Sidebar() {
                       ? "text-purple-600 hover:bg-gradient-to-r hover:from-purple-50 hover:to-blue-50 dark:text-purple-400 dark:hover:from-purple-900/20 dark:hover:to-blue-900/20"
                       : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800/60"
                 )}
+                data-guide={
+                  item.module === 'ai-rules' ? 'ai-rules-nav' :
+                  item.module === 'ai-assistant-chat' ? 'ai-chat-nav' :
+                  item.module === 'settings' ? 'settings-nav' :
+                  item.module === 'candidates' ? 'candidates-nav' :
+                  item.module === 'logs' ? 'logs-nav' :
+                  undefined
+                }
               >
                 {/* AI筛选的特殊标识 */}
                 {item.highlight && (

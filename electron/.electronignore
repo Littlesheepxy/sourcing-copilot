@@ -1,0 +1,66 @@
+# 虚拟环境
+../myenv/
+../venv/
+../env/
+../.venv/
+
+# 备份文件
+../backup/
+../**/backup/
+../**/*.backup
+../**/*.bak
+
+# 开发文件
+../node_modules/
+../.git/
+../.DS_Store
+../**.log
+../logs/
+
+# Python缓存
+../**/__pycache__/
+../**/*.pyc
+../**/*.pyo
+
+# 临时文件
+../temp*/
+../tmp*/
+../.next/
+../dist/
+../build/
+
+# 配置文件
+../.env*
+../**.config.js
+../tsconfig.json
+../babel.config.js
+../postcss.config.js
+
+# 文档和说明
+../**.md
+../**.txt
+../**.pdf
+
+# 测试文件
+../test*/
+../**/*test*
+../**/*spec*
+
+# 源码文件（只保留构建后的文件）
+../web-app/app/
+../web-app/components/
+../web-app/hooks/
+../web-app/lib/
+../web-app/store/
+../web-app/public/
+../automation/
+../scripts/
+../packages/
+../shared/
+../extension/
+../temp-icons/
+
+# 数据库文件
+../**.db
+../**.sqlite
+../**.sqlite3 

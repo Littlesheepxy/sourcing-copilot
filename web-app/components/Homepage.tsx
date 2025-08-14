@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { 
   AlertCircle, AlertTriangle, CheckCircle, Circle, ArrowRight, 
   ExternalLink, Calendar, Users, FilePlus, Settings, Bot, Play, StopCircle, Crown, ChevronUp, ChevronDown, TrendingUp, Award,
-  Clock, FileText, Brain, KanbanSquare, Zap, MessageCircle, LightbulbIcon, HelpCircle
+  Clock, FileText, Brain, KanbanSquare, Zap, MessageCircle, LightbulbIcon, HelpCircle, BookOpen
 } from "lucide-react";
 import { useStore } from "../store/store";
 import { 
@@ -19,6 +19,8 @@ import VerticalTabsCard from "./ui/VerticalTabsCard";
 import PositionProgress from "./Dashboard/PositionProgress";
 import AutomationStatus from "./Dashboard/AutomationStatus"; 
 import QuickAccessGrid from "./Dashboard/QuickAccessGrid";
+import ConfigStatus from "./ConfigStatus";
+import useUserGuide from "./UserGuide";
 
 // 引导步骤
 const steps = [
@@ -28,20 +30,40 @@ const steps = [
 ];
 
 export default function Homepage() {
-  const { setActiveModule } = useStore();
+  const { 
+    setActiveModule, 
+    timeTracking, 
+    greetingStats,
+    startTimeTracking,
+    stopTimeTracking,
+    incrementGreetings
+  } = useStore();
   
   // 系统状态
   const [systemStatus, setSystemStatus] = useState({
     running: false,
     processedCount: 0,
     pageType: '未知',
-    greetedCount: 0
+    greetedCount: 0,
+    totalTasks: 50 // 添加总任务数字段，默认值50
   });
   const [loading, setLoading] = useState(false);
   const [detecting, setDetecting] = useState(false);
   const [launching, setLaunching] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showLaunchOptions, setShowLaunchOptions] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
+  
+  // 用户引导相关状态
+  const [showGuide, setShowGuide] = useState(false);
+  const userGuide = useUserGuide({ 
+    onComplete: () => {
+      setShowGuide(false);
+    }
+  });
+  
+  // 新增：引导提示状态
+  const [showGuideTip, setShowGuideTip] = useState(false);
   
   // 当前流程步骤
   const [currentStep, setCurrentStep] = useState(0);
@@ -80,7 +102,8 @@ export default function Homepage() {
           running: data.running,
           processedCount: data.processedCount || 0,
           pageType: formatPageType(data.pageType),
-          greetedCount: Math.floor(data.processedCount * 0.7) || 0
+          greetedCount: Math.floor(data.processedCount * 0.7) || 0,
+          totalTasks: data.totalTasks || 50 // 从API获取总任务数，默认50
         });
         
         // 更新当前步骤
@@ -161,7 +184,20 @@ export default function Homepage() {
       const data = await response.json();
       
       if (data.success) {
-        // 浏览器启动成功，更新状态
+        // 浏览器启动成功，显示提醒
+        if (typeof window !== 'undefined' && window.electronAPI) {
+          // 在Electron环境中，通知主进程显示浏览器运行提醒
+          try {
+            // 这里我们可以通过API请求来触发显示提醒
+            fetch('http://localhost:8000/api/browser/show-reminder', {
+              method: 'POST'
+            }).catch(console.error);
+          } catch (error) {
+            console.error('显示浏览器提醒失败:', error);
+          }
+        }
+        
+        // 更新状态
         if (data.connected) {
           setSystemStatus(prev => ({
             ...prev,
@@ -217,6 +253,8 @@ export default function Homepage() {
       const data = await response.json();
       if (data.success) {
         await fetchStatus();
+        // 开始时间记录
+        startTimeTracking();
       } else {
         setErrorMessage('启动失败: ' + data.message);
       }
@@ -239,6 +277,8 @@ export default function Homepage() {
       const data = await response.json();
       if (data.success) {
         await fetchStatus();
+        // 停止时间记录
+        stopTimeTracking();
       } else {
         setErrorMessage('停止失败: ' + data.message);
       }
@@ -268,8 +308,41 @@ export default function Homepage() {
   };
   
   // 联系客服
-  const handleContactSupport = () => {
-    window.open('https://slack.com/app_redirect?channel=U08G73V05TM', '_blank');
+  const handleContactSupport = async () => {
+    const slackUrl = 'https://slack.com/app_redirect?channel=U08G73V05TM';
+    
+    // 检查是否在 Electron 环境中
+    if (typeof window !== 'undefined' && window.electronAPI) {
+      try {
+        const result = await window.electronAPI.openExternal(slackUrl);
+        if (!result.success) {
+          // 如果 Electron 方式失败，显示联系方式选择模态框
+          setShowContactModal(true);
+        }
+      } catch (error) {
+        console.error('Electron openExternal 失败:', error);
+        // 显示联系方式选择模态框
+        setShowContactModal(true);
+      }
+    } else {
+      // 在浏览器环境中使用传统方式
+      try {
+        window.open(slackUrl, '_blank');
+      } catch (error) {
+        setShowContactModal(true);
+      }
+    }
+  };
+  
+  // 复制到剪贴板
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setErrorMessage('已复制到剪贴板！');
+      setTimeout(() => setErrorMessage(null), 2000);
+    } catch (error) {
+      setErrorMessage('复制失败，请手动复制');
+    }
   };
   
   // 组件加载时获取状态和检测浏览器
@@ -280,17 +353,34 @@ export default function Homepage() {
     // 定时刷新状态
     const intervalId = setInterval(fetchStatus, 5000);
     
+    // 3秒后显示引导提示
+    const tipTimer = setTimeout(() => {
+      setShowGuideTip(true);
+    }, 3000);
+    
     // 清理定时器
-    return () => clearInterval(intervalId);
+    return () => {
+      clearInterval(intervalId);
+      clearTimeout(tipTimer);
+    };
   }, []);
 
-  // 点击外部关闭下拉菜单
+  // 点击外部关闭下拉菜单和引导提示
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      
+      // 处理启动选项下拉菜单
       if (showLaunchOptions) {
-        const target = event.target as Element;
         if (!target.closest('.launch-options-container')) {
           setShowLaunchOptions(false);
+        }
+      }
+      
+      // 处理引导提示
+      if (showGuideTip) {
+        if (!target.closest('[data-guide="start-guide-button"]') && !target.closest('.guide-tip-container')) {
+          setShowGuideTip(false);
         }
       }
     };
@@ -299,21 +389,32 @@ export default function Homepage() {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showLaunchOptions]);
+  }, [showLaunchOptions, showGuideTip]);
 
-  // 模拟数据
+  // 引导提示自动消失
+  useEffect(() => {
+    if (showGuideTip) {
+      const autoHideTimer = setTimeout(() => {
+        setShowGuideTip(false);
+      }, 8000); // 8秒后自动消失
+      
+      return () => clearTimeout(autoHideTimer);
+    }
+  }, [showGuideTip]);
+
+  // 计算实际数据
   const timeStats = {
-    savedHours: 24,
-    efficiency: 35
+    savedHours: Math.floor(timeTracking.totalSavedTime / 3600), // 转换为小时
+    efficiency: Math.min(Math.floor(greetingStats.totalGreetings / 50 * 100), 100) // 按公式计算效率提升
   };
   
   const resumeStats = {
-    total: systemStatus.processedCount + 20,
-    processed: systemStatus.processedCount,
-    greeted: systemStatus.greetedCount
+    total: greetingStats.totalGreetings, // 只显示主动打招呼数量
+    processed: greetingStats.totalGreetings,
+    greeted: greetingStats.totalGreetings
   };
   
-  const aiSuggestion = "将筛选条件中的'工作年限'从3年调整到2年可提高匹配率25%";
+  const aiSuggestion = "暂无AI效率建议，请继续使用系统积累数据";
   
   const positionProgress = {
     total: 100,
@@ -324,31 +425,31 @@ export default function Homepage() {
   
   const automationStatus = {
     running: systemStatus.running,
-    taskCount: 80,
+    taskCount: systemStatus.totalTasks, // 使用从API获取的总任务数
     completedTasks: systemStatus.processedCount,
     nextScheduledTime: systemStatus.running ? "今天 15:30" : undefined
   };
   
   const rankingData = {
     industry: "互联网",
-    ranking: 12,
-    totalCompanies: 230,
-    change: 3
+    ranking: 0,
+    totalCompanies: 0,
+    change: 0
   };
   
   const trendItems = [
-    { name: "平均招聘效率", value: 4.8, change: 12 },
-    { name: "简历处理速度", value: 56, change: 8 },
-    { name: "候选人回复率", value: "32%", change: -5 }
+    { name: "平均招聘效率", value: 0, change: 0 },
+    { name: "简历处理速度", value: 0, change: 0 },
+    { name: "候选人回复率", value: "0%", change: 0 }
   ];
   
   const achievements = [
-    { id: "1", name: "效率之星", icon: "🚀", description: "一天内处理50份简历", unlocked: true },
-    { id: "2", name: "招聘达人", icon: "🏆", description: "成功招聘10名员工", unlocked: true },
-    { id: "3", name: "沟通高手", icon: "💬", description: "回复率达到40%", unlocked: false, progress: { current: 32, total: 40 } },
-    { id: "4", name: "规则大师", icon: "📋", description: "创建5条高效筛选规则", unlocked: false, progress: { current: 3, total: 5 } },
-    { id: "5", name: "AI助手", icon: "🤖", description: "使用AI优化10次搜索", unlocked: false, progress: { current: 4, total: 10 } },
-    { id: "6", name: "全能选手", icon: "⭐", description: "使用所有功能模块", unlocked: false, progress: { current: 3, total: 5 } }
+    { id: "1", name: "效率之星", icon: "🚀", description: "一天内处理50份简历", unlocked: false, progress: { current: 0, total: 50 } },
+    { id: "2", name: "招聘达人", icon: "🏆", description: "成功招聘10名员工", unlocked: false, progress: { current: 0, total: 10 } },
+    { id: "3", name: "沟通高手", icon: "💬", description: "回复率达到40%", unlocked: false, progress: { current: 0, total: 40 } },
+    { id: "4", name: "规则大师", icon: "📋", description: "创建5条高效筛选规则", unlocked: false, progress: { current: 0, total: 5 } },
+    { id: "5", name: "AI助手", icon: "🤖", description: "使用AI优化10次搜索", unlocked: false, progress: { current: 0, total: 10 } },
+    { id: "6", name: "全能选手", icon: "⭐", description: "使用所有功能模块", unlocked: false, progress: { current: 0, total: 5 } }
   ];
   
   const tips = [
@@ -364,7 +465,51 @@ export default function Homepage() {
   ];
 
   return (
-    <div className="p-4 sm:p-6 max-w-full xl:max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-full xl:max-w-7xl mx-auto" data-guide="welcome">
+      {/* 用户引导按钮 */}
+      <div className="flex justify-end mb-4 relative">
+        <button
+          onClick={() => {
+            userGuide.startGuide();
+            setShowGuideTip(false);
+          }}
+          className={`flex items-center px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg font-medium shadow-md hover:shadow-lg transition-all relative ${
+            showGuideTip ? 'animate-pulse ring-4 ring-purple-300 ring-opacity-75' : ''
+          }`}
+          data-guide="start-guide-button"
+        >
+          <BookOpen className="w-4 h-4 mr-2" />
+          开始引导
+        </button>
+        
+                 {/* 引导提示 */}
+         {showGuideTip && (
+           <div className="absolute top-full right-0 mt-2 z-50 guide-tip-container">
+             {/* 提示气泡 */}
+             <div className="relative bg-gradient-to-r from-purple-500 to-blue-500 text-white px-4 py-3 rounded-lg shadow-lg max-w-xs animate-bounce">
+              <div className="text-sm font-medium mb-1">👋 欢迎使用 Sourcing Copilot！</div>
+              <div className="text-xs opacity-90">点击这里开始新手引导，快速上手所有功能</div>
+              
+              {/* 箭头指向按钮 */}
+              <div className="absolute -top-2 right-6 w-0 h-0 border-l-4 border-r-4 border-b-4 border-l-transparent border-r-transparent border-b-purple-500"></div>
+              
+              {/* 关闭按钮 */}
+              <button
+                onClick={() => setShowGuideTip(false)}
+                className="absolute -top-1 -right-1 w-5 h-5 bg-white text-purple-500 rounded-full flex items-center justify-center text-xs font-bold hover:bg-gray-100 transition-colors"
+              >
+                ×
+              </button>
+            </div>
+            
+            {/* 手指指向动效 */}
+            <div className="absolute -top-8 right-8 text-2xl animate-bounce" style={{ animationDelay: '0.5s' }}>
+              👆
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* 顶部标题与状态指示器 */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-2">
           <h1 className="text-2xl sm:text-3xl font-bold">仪表盘</h1>
@@ -406,6 +551,7 @@ export default function Homepage() {
             timeStats={timeStats}
             resumeStats={resumeStats}
             aiSuggestion={aiSuggestion}
+            onNavigate={handleNavClick}
           />
         </DashboardCard>
       </div>
@@ -420,6 +566,7 @@ export default function Homepage() {
             icon={<KanbanSquare className="h-5 w-5 text-blue-500" />}
             variant="gradient"
             collapsible
+            data-guide="automation-progress"
           >
             {/* 流程指示器 */}
             <div className="mb-4 sm:mb-6 bg-white dark:bg-slate-800 rounded-lg p-3 sm:p-4 border border-gray-100 dark:border-gray-700">
@@ -467,6 +614,7 @@ export default function Homepage() {
                     onClick={detectBrowser} 
                     disabled={detecting}
                     className={`flex-1 sm:flex-none px-3 py-1 text-xs rounded-md bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-300 ${detecting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    data-guide="detect-browser"
                   >
                     {detecting ? '检测中...' : '重新检测'}
                   </button>
@@ -477,6 +625,7 @@ export default function Homepage() {
                         onClick={() => launchBrowserWithOptions()} 
                         disabled={launching}
                         className={`flex-1 px-3 py-1 text-xs rounded-l-md bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300 ${launching ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-200 dark:hover:bg-blue-800'}`}
+                        data-guide="launch-browser"
                       >
                         {launching ? '启动中...' : '启动浏览器'}
                       </button>
@@ -542,6 +691,7 @@ export default function Homepage() {
                 <button 
                   onClick={handleNextStep}
                   className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-medium flex items-center justify-center shadow-md hover:shadow-lg transition-all"
+                  data-guide="start-automation"
                 >
                   {!pageDetected ? (
                     <>
@@ -563,8 +713,8 @@ export default function Homepage() {
               </div>
             )}
 
-            {/* 三个模块组成的任务中心内容 */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {/* 两个模块组成的任务中心内容 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               {/* 职位进度看板 */}
               <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 h-full">
                 <PositionProgress 
@@ -582,26 +732,23 @@ export default function Homepage() {
                   loading={loading}
                 />
               </div>
-              
-              {/* 快捷入口 */}
-              <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 h-full sm:col-span-2 lg:col-span-1">
-                <QuickAccessGrid 
-                  title="快捷入口"
-                  onNavigate={handleNavClick}
-                />
-              </div>
             </div>
           </DashboardCard>
             </div>
         
         {/* 右侧辅助区 (4/12) */}
         <div className="lg:col-span-4 space-y-4 sm:space-y-6">
+          {/* 配置状态区 */}
+          <ConfigStatus />
+          
           {/* 激励与数据区（使用垂直标签页） */}
           <VerticalTabsCard 
             title="我的成长与战绩" 
             icon={<TrendingUp className="h-5 w-5 text-purple-500" />}
             variant="default"
             collapsible
+            disabled={true}
+            disabledMessage="开发中"
             tabs={[
               {
                 id: "ranking",
@@ -792,6 +939,88 @@ export default function Homepage() {
           />
         </div>
       </div>
+      
+      {/* 联系客服模态框 */}
+      {showContactModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-slate-800 rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">联系客服</h3>
+              <button 
+                onClick={() => setShowContactModal(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                由于系统限制，无法自动打开 Slack 链接。请选择以下方式联系客服：
+              </p>
+              
+              <div className="space-y-3">
+                <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <h4 className="font-medium text-sm mb-2">方式一：复制 Slack 链接</h4>
+                  <div className="flex items-center space-x-2">
+                    <input 
+                      type="text" 
+                      value="https://slack.com/app_redirect?channel=U08G73V05TM"
+                      readOnly
+                      className="flex-1 text-xs p-2 border rounded bg-white dark:bg-slate-600 dark:border-gray-600"
+                    />
+                    <button 
+                      onClick={() => copyToClipboard('https://slack.com/app_redirect?channel=U08G73V05TM')}
+                      className="px-3 py-2 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                    >
+                      复制
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <h4 className="font-medium text-sm mb-2">方式二：Slack 用户 ID</h4>
+                  <div className="flex items-center space-x-2">
+                    <input 
+                      type="text" 
+                      value="U08G73V05TM"
+                      readOnly
+                      className="flex-1 text-xs p-2 border rounded bg-white dark:bg-slate-600 dark:border-gray-600"
+                    />
+                    <button 
+                      onClick={() => copyToClipboard('U08G73V05TM')}
+                      className="px-3 py-2 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                    >
+                      复制
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    在 Slack 中搜索此用户 ID 即可找到客服
+                  </p>
+                </div>
+                
+                <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <h4 className="font-medium text-sm mb-1">方式三：邮件联系</h4>
+                  <p className="text-xs text-gray-600 dark:text-gray-300">
+                    如果以上方式都无法使用，请通过邮件联系技术支持团队
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-2 mt-6">
+                <button 
+                  onClick={() => setShowContactModal(false)}
+                  className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100"
+                >
+                  关闭
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
